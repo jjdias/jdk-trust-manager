@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /app
+    schedule:
+      interval: weekly
+    groups:
+      jackson:
+        patterns:
+          - "com.fasterxml.jackson*"
+    ignore:
+      # The app stays on the JavaFX 21 line. Patch and minor updates still come through.
+      - dependency-name: "org.openjfx:*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

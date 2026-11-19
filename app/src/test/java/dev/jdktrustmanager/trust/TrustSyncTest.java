@@ -18,8 +18,9 @@ class TrustSyncTest {
 
     @Test
     void importsOnceAndRejectsPrivateKeysAndParentPaths() throws Exception {
-        Path keytool = Path.of("C:\\Java\\temurin-21\\bin\\keytool.exe");
-        Path cacerts = Path.of("C:\\Java\\temurin-21\\lib\\security\\cacerts");
+        Path home = Path.of(System.getProperty("java.home"));
+        Path keytool = home.resolve("bin").resolve("keytool.exe");
+        Path cacerts = home.resolve("lib").resolve("security").resolve("cacerts");
         org.junit.jupiter.api.Assumptions.assumeTrue(Files.isRegularFile(keytool) && Files.isRegularFile(cacerts));
 
         TrustSync sync = new TrustSync();

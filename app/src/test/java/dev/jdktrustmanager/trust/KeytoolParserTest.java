@@ -25,11 +25,11 @@ class KeytoolParserTest {
         assertEquals("private key present", parsed.get(1).entryType());
         assertFalse(parsed.get(1).entryType().contains("BEGIN"));
 
-        Path home = Path.of("C:\\Java\\temurin-21");
+        Path home = Path.of(System.getProperty("java.home"));
         if (!Files.isRegularFile(home.resolve("bin").resolve("keytool.exe"))) {
             return;
         }
-        List<CertificateEntry> live = new KeytoolStore().listCacerts(home, 21);
+        List<CertificateEntry> live = new KeytoolStore().listCacerts(home, Runtime.version().feature());
         assertFalse(live.isEmpty());
         assertTrue(live.stream().anyMatch(entry -> entry.alias() != null && !entry.alias().isBlank()));
     }
