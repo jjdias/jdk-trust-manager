@@ -192,7 +192,6 @@ Enabled certificates live beside the JDKs, not inside one of them and not under 
 ```text
 C:\Java\trusted-certs\
   sources.json
-  mozilla\cacert.pem
   urls\<slug>\<downloaded file>
   local\<files added through the GUI>
 ```
@@ -203,10 +202,11 @@ Private test CAs are a primary use of this folder. Internal CM clusters present 
 
 Each certificate row shows subject, issuer, SHA-256, validity, and whether it is a CA (`Basic Constraints` with `CA:true`). The checked set is global. Every managed JDK receives that same set, so switching `JAVA_HOME` keeps the certificates Selenium and the internal clusters need. A newly installed JDK gets the set at the end of install.
 
-Built-in URLs, both enabled by default:
+One built-in URL, enabled by default:
 
-1. Mozilla CA bundle, `https://curl.se/ca/cacert.pem`. Its certificates start checked.
-2. TestNG host, `https://testng.org`. TestNG downloads `https://testng.org/testng-1.0.dtd` when Selenium runs suites. The app opens that HTTPS port, saves the certificate chain as PEM under `urls\testng\`, and syncs those certificates. When the host presents a new chain, the app downloads it and syncs it to every managed JDK. The activity log records the old and new fingerprints, and the `cacerts` backup can undo it.
+- TestNG host, `https://testng.org`. TestNG downloads `https://testng.org/testng-1.0.dtd` when Selenium runs suites. The app opens that HTTPS port, saves the certificate chain as PEM under `urls\testng\`, and syncs those certificates. When the host presents a new chain, the app downloads it and syncs it to every managed JDK. The activity log records the old and new fingerprints, and the `cacerts` backup can undo it.
+
+There is no Mozilla or other public CA bundle source. Every JDK already ships a vendor `cacerts` with the public roots, and the app never replaces it. The shared folder exists for certificates that `cacerts` lacks: the TestNG chain, private CAs, and any HTTPS hosts the user adds. If `sources.json` lists `https://curl.se/ca/cacert.pem`, the app drops that entry when it loads the file.
 
 Windows roots (`Cert:\LocalMachine\Root`) are an optional local source, off by default. Turning it on copies those certificates into the shared folder and lists them for checking. It is off by default because a corporate root can be an intercepting proxy.
 
@@ -224,7 +224,7 @@ When the file hash changes, certificates are parsed again. Sync then runs agains
 - One fingerprint is imported once even if two sources contain it.
 - Each JDK is synced with its own `keytool`. A Java 8 failure is reported on that row and does not stop the newer JDKs.
 - Backup `cacerts` before the write. The activity log records added and removed fingerprints. Restore from a backup undoes a bad sync.
-- The first time a source is enabled, the GUI shows how many certificates will be added. Later updates of a bundle such as Mozilla apply on their own and are listed in the activity log.
+- The first time a source is enabled, the GUI shows how many certificates will be added. Later updates of a multi-certificate source apply on their own and are listed in the activity log.
 - A user-added URL that contains a single certificate pauses when that fingerprint changes. The GUI asks before replacing it. The built-in TestNG chain does not pause: a new chain is downloaded and synced, and the activity log shows the fingerprint change.
 - The checked certificates can be exported as one PEM file for tools that are not Java.
 - Named trust profiles come later, for two projects that must not share the same private CA. The first version has one global checked set.
@@ -256,7 +256,7 @@ If `keytool` returns a bad-password error, the UI asks for the store password an
 - Pin an install so "update all" skips it.
 - Notes field stored in `installations.json`.
 - Activity log in the UI, backed by the log files.
-- Use the Windows system proxy for the Disco API, vendor zips, and the Mozilla download.
+- Use the Windows system proxy for the Disco API, vendor zips, and certificate downloads.
 - Architecture: x64 packages are the default. An arm64 install uses a `-arm64` directory so it does not overwrite x64.
 - Copy trusted certificates from one installation to others, using the same preview and fingerprint match.
 - Report button: write an HTML file with installations, active `JAVA_HOME`, and certificates that are expired or expiring within 30 days.
@@ -309,7 +309,7 @@ Settings live in `%LOCALAPPDATA%\JdkTrustManager\settings.json`: root directory,
 5. Installed screen, uninstall, adopt scan.
 6. Environment preview and apply for the user scope, then the system scope.
 7. Truststore list, detail, compare, backup, single import and delete.
-8. `trusted-certs`, Mozilla and the TestNG host chain as default URLs, drop folder for private CAs, per-certificate checkboxes, sync to every managed JDK, replay after upgrade.
+8. `trusted-certs`, the TestNG host chain as the default URL, drop folder for private CAs, per-certificate checkboxes, sync to every managed JDK, replay after upgrade.
 9. Health, update-available, pin, report, per-shell and toolchain snippets.
 10. Package the app with its own runtime.
 
