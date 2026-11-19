@@ -1,0 +1,22 @@
+Alias name: example
+Creation date: Nov 19, 2026
+Entry type: trustedCertEntry
+
+Owner: CN=Example
+Issuer: CN=Example
+Serial number: 1
+Valid from: Thu Nov 19 00:00:00 GMT 2026 until: Fri Nov 19 00:00:00 GMT 2027
+Certificate fingerprints:
+	 SHA256: AA:BB:CC
+Signature algorithm name: SHA256withRSA
+
+Alias name: secret
+Entry type: PrivateKeyEntry
+
+Owner: CN=Secret
+Issuer: CN=Secret
+Serial number: 2
+Valid from: Thu Nov 19 00:00:00 GMT 2026 until: Fri Nov 19 00:00:00 GMT 2027
+Certificate fingerprints:
+	 SHA256: DD:EE
+Signature algorithm name: SHA256withRSA

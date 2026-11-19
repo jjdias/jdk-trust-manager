@@ -1,0 +1,34 @@
+{
+  "result": [
+    {
+      "name": "Temurin",
+      "api_parameter": "temurin",
+      "maintained": true,
+      "available": true,
+      "build_of_graalvm": false,
+      "versions": ["21.0.13+9", "8.0.412"]
+    },
+    {
+      "name": "SapMachine",
+      "api_parameter": "sap_machine",
+      "maintained": true,
+      "available": true,
+      "build_of_graalvm": false,
+      "versions": ["21.0.5"]
+    },
+    {
+      "name": "Retired",
+      "api_parameter": "retired",
+      "maintained": false,
+      "available": true,
+      "versions": ["11"]
+    },
+    {
+      "name": "Unavailable",
+      "api_parameter": "unavailable",
+      "maintained": true,
+      "available": false,
+      "versions": ["21"]
+    }
+  ]
+}

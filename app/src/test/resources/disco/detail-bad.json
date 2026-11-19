@@ -1,0 +1,9 @@
+{
+  "result": [
+    {
+      "direct_download_uri": "https://example.invalid/jdk.zip",
+      "checksum": "",
+      "checksum_type": "md5"
+    }
+  ]
+}

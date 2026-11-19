@@ -1,0 +1,10 @@
+target/
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Checkout-local copy of %LOCALAPPDATA%\JdkTrustManager\cache
+JdkTrustManager/cache/
