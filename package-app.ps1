@@ -10,7 +10,7 @@ if (-not $JavaHome -or -not (Test-Path (Join-Path $JavaHome 'jmods'))) {
 }
 $env:JAVA_HOME = $JavaHome
 $env:Path = "$JavaHome\bin;" + $env:Path
-& $Maven -f app\pom.xml -DskipTests package dependency:copy-dependencies "-DincludeScope=runtime" "-DoutputDirectory=$PSScriptRoot\app\target\deps"
+& $Maven -f app\pom.xml -DskipTests clean package dependency:copy-dependencies "-DincludeScope=runtime" "-DoutputDirectory=$PSScriptRoot\app\target\deps"
 if ($LASTEXITCODE -ne 0) { throw 'Maven build failed' }
 $deps = Join-Path $PSScriptRoot 'app\target\deps'
 $javafx = Get-ChildItem $deps -Filter 'javafx-*-win.jar' | ForEach-Object { $_.FullName }
@@ -21,14 +21,24 @@ if (Test-Path $runtime) { Remove-Item $runtime -Recurse -Force }
 $inputDir = Join-Path $PSScriptRoot 'app\target\app-input'
 if (Test-Path $inputDir) { Remove-Item $inputDir -Recurse -Force }
 New-Item $inputDir -ItemType Directory | Out-Null
-Copy-Item (Join-Path $PSScriptRoot 'app\target\jdk-trust-manager-0.1.0-SNAPSHOT.jar') $inputDir
+$jar = Get-ChildItem (Join-Path $PSScriptRoot 'app\target') -Filter 'jdk-trust-manager-*.jar' | Select-Object -First 1
+Copy-Item $jar.FullName $inputDir
 Get-ChildItem $deps -Filter '*.jar' | Where-Object { $_.Name -notlike 'javafx-*' } | Copy-Item -Destination $inputDir
 $dest = Join-Path $PSScriptRoot 'app\target\dist'
 if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-& jpackage --type app-image --name JdkTrustManager --input $inputDir --main-jar jdk-trust-manager-0.1.0-SNAPSHOT.jar --main-class dev.jdktrustmanager.JdkTrustManagerApp --runtime-image $runtime --dest $dest
+& jpackage --type app-image --name JdkTrustManager --input $inputDir --main-jar $jar.Name --app-version ($jar.BaseName -replace '^jdk-trust-manager-', '') --main-class dev.jdktrustmanager.JdkTrustManagerApp --runtime-image $runtime --dest $dest
 $bundled = Join-Path $dest 'JdkTrustManager\runtime\bin\java.exe'
 if ((Resolve-Path $bundled).Path -eq (Join-Path $JavaHome 'bin\java.exe')) {
     throw 'Packaged runtime points at the build JDK'
 }
 Write-Output $bundled
 & $bundled -version
+$image = Join-Path $dest 'JdkTrustManager'
+Copy-Item (Join-Path $PSScriptRoot 'LICENSE') $image
+Copy-Item (Join-Path $PSScriptRoot 'THIRD-PARTY-NOTICES.txt') $image
+$version = $jar.BaseName -replace '^jdk-trust-manager-', ''
+$zip = Join-Path $PSScriptRoot "app\target\JdkTrustManager-$version-windows-x64.zip"
+if (Test-Path $zip) { Remove-Item $zip -Force }
+Compress-Archive -Path $image -DestinationPath $zip
+Write-Output $zip
+(Get-FileHash $zip -Algorithm SHA256).Hash

@@ -6,6 +6,19 @@ It is built for machines that run several JDKs and need private or test CAs trus
 
 > Status: early and Windows only. The full product spec is in [roadmap.md](roadmap.md). Some features described there do not have a screen yet.
 
+## Download
+
+Get `JdkTrustManager-<version>-windows-x64.zip` from the [latest release](https://github.com/jjdias/jdk-trust-manager/releases/latest).
+
+1. Unzip it anywhere, for example `%LOCALAPPDATA%\Programs\JdkTrustManager`. Keep the whole folder together, because the exe needs the `app` and `runtime` folders next to it.
+2. Run `JdkTrustManager.exe`. You don't need to install Java, because the zip includes its own Java 21 runtime.
+
+The exe is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose **More info**, then **Run anyway**. To check the download first, compare its SHA-256 with the one in the release notes:
+
+```powershell
+Get-FileHash .\JdkTrustManager-0.1.0-windows-x64.zip -Algorithm SHA256
+```
+
 ## What it does
 
 **Installs JDKs from [Foojay](https://api.foojay.io/disco/v3.0).**
@@ -72,7 +85,7 @@ Build a standalone app image with its own runtime:
 .\package-app.ps1
 ```
 
-The script uses `JAVA_HOME` and `mvn` from `PATH` by default. Pass `-JavaHome <jdk>` or `-Maven <path to mvn.cmd>` to use other ones. The result is `app\target\dist\JdkTrustManager\`, with `JdkTrustManager.exe` inside. Copy the whole folder. The bundled runtime means the app keeps working when the JDKs under `C:\Java` change.
+The script uses `JAVA_HOME` and `mvn` from `PATH` by default. Pass `-JavaHome <jdk>` or `-Maven <path to mvn.cmd>` to use other ones. The result is `app\target\dist\JdkTrustManager\`, with `JdkTrustManager.exe` inside, plus the release zip `app\target\JdkTrustManager-<version>-windows-x64.zip` and its SHA-256. Copy the whole folder, not just the exe. The bundled runtime means the app keeps working when the JDKs under `C:\Java` change.
 
 One test installs a cached Temurin 21 zip. It is skipped until that zip is in `%LOCALAPPDATA%\JdkTrustManager\cache\`, which happens after you install Temurin 21.0.13+9 with the app once.
 
@@ -87,3 +100,7 @@ One test installs a cached Temurin 21 zip. It is skipped until that zip is in `%
 ## Out of scope for now
 
 Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, and named trust profiles.
+
+## License
+
+[MIT](LICENSE). The release zip also contains a Java runtime built from Eclipse Temurin with OpenJFX linked in, both under GPLv2 with the Classpath Exception, and the Jackson libraries, under Apache-2.0. See [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).

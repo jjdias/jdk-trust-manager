@@ -21,7 +21,7 @@ Read this file before any other project file. It applies to every agent on this 
 - Do not launch subagents for a single file, a known path, or a decision the roadmap already made.
 - Do not re-run a command that just succeeded. If a command fails, read the error and change the command. Do not retry the same command.
 - The shell is Windows PowerShell. Do not use `&&` or bash heredocs. Do not call `winget`, `msiexec`, `setx`, or Scoop. JDK install is the zip flow in the roadmap.
-- Do not download a JDK, a CA bundle, or a TestNG certificate unless the current step says to.
+- Do not download a JDK or a TestNG certificate unless the current step says to.
 - Do not start the GUI, a browser, or a long-running process to "check" a unit-test change.
 
 ## Editing

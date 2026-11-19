@@ -1,0 +1,21 @@
+JDK Trust Manager is licensed under the MIT License (see LICENSE).
+
+The packaged app image also contains these third-party components:
+
+Java runtime (runtime\)
+  Built with jlink from Eclipse Temurin 21 (OpenJDK).
+  License: GNU General Public License, version 2, with the Classpath Exception.
+  The full license text and the notices for each module are in runtime\legal\.
+  Source: https://github.com/adoptium/temurin-build and https://openjdk.org
+
+OpenJFX 21 (javafx.base, javafx.graphics, javafx.controls), linked into runtime\
+  License: GNU General Public License, version 2, with the Classpath Exception.
+  This is the same license as the Java runtime. Its text is in
+  runtime\legal\java.base\LICENSE and runtime\legal\java.base\ASSEMBLY_EXCEPTION.
+  Source: https://github.com/openjdk/jfx
+
+Jackson 2.18 (jackson-annotations, jackson-core, jackson-databind,
+jackson-datatype-jsr310), in app\
+  License: Apache License, version 2.0.
+  The license and NOTICE files are inside each jar under META-INF\.
+  Source: https://github.com/FasterXML/jackson
