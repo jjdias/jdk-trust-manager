@@ -14,7 +14,7 @@
     <maven.compiler.release>21</maven.compiler.release>
     <javafx.version>21.0.8</javafx.version>
     <junit.version>5.11.4</junit.version>
-    <jackson.version>2.18.2</jackson.version>
+    <jackson.version>2.18.11</jackson.version>
   </properties>
 
   <dependencies>
