@@ -16,7 +16,7 @@ Get `JdkTrustManager-<version>-windows-x64.zip` from the [latest release](https:
 The exe is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose **More info**, then **Run anyway**. To check the download first, compare its SHA-256 with the one in the release notes:
 
 ```powershell
-Get-FileHash .\JdkTrustManager-0.1.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\JdkTrustManager-*-windows-x64.zip -Algorithm SHA256
 ```
 
 ## What it does

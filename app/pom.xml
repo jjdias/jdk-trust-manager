@@ -6,7 +6,7 @@
 
   <groupId>dev.jdktrustmanager</groupId>
   <artifactId>jdk-trust-manager</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <name>JDK Trust Manager</name>
 
   <properties>
