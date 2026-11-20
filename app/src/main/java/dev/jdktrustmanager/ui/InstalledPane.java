@@ -63,6 +63,9 @@ public final class InstalledPane extends BorderPane {
                 status.setText("Select a version");
                 return;
             }
+            if (!ConfirmDialog.confirm(this, Confirmations.setJavaHome(path, false))) {
+                return;
+            }
             queue.submit(new WorkQueue.Job() {
                 @Override
                 public WorkQueue.Kind kind() {
@@ -95,6 +98,9 @@ public final class InstalledPane extends BorderPane {
             String path = selectedPath(rows);
             if (path == null) {
                 status.setText("Select a version");
+                return;
+            }
+            if (!ConfirmDialog.confirm(this, Confirmations.removeJdk(path))) {
                 return;
             }
             queue.submit(new WorkQueue.Job() {

@@ -40,7 +40,11 @@ public final class TrustedCertsPane extends BorderPane {
         filter.setPromptText("Filter");
         filter.textProperty().addListener((obs, previous, text) -> showUrls());
         Button syncAll = new Button("Sync all");
-        syncAll.setOnAction(event -> queue.submit(syncJob(root, installationsFile, bundledRuntime, this::reload)));
+        syncAll.setOnAction(event -> {
+            if (ConfirmDialog.confirm(this, Confirmations.syncAll())) {
+                queue.submit(syncJob(root, installationsFile, bundledRuntime, this::reload));
+            }
+        });
         Button add = new Button("Add");
         add.setOnAction(event -> ask("Add URL", "").ifPresent(value -> change(() -> UrlCatalog.add(urls, value))));
         Button edit = new Button("Edit");
@@ -48,7 +52,11 @@ public final class TrustedCertsPane extends BorderPane {
         Button disable = new Button("Disable");
         disable.setOnAction(event -> selectedIndex().ifPresent(index -> change(() -> UrlCatalog.enabled(urls, index, !urls.get(index).enabled()))));
         Button remove = new Button("Remove");
-        remove.setOnAction(event -> selectedIndex().ifPresent(index -> change(() -> UrlCatalog.remove(urls, index))));
+        remove.setOnAction(event -> selectedIndex().ifPresent(index -> {
+            if (ConfirmDialog.confirm(this, Confirmations.removeUrl(urls.get(index).url()))) {
+                change(() -> UrlCatalog.remove(urls, index));
+            }
+        }));
         Button importFile = new Button("Import");
         importFile.setOnAction(event -> importUrls());
         Button exportFile = new Button("Export");

@@ -114,6 +114,9 @@ public final class EnvironmentPane extends VBox {
             status.setText("Select a JDK first.");
             return;
         }
+        if (!ConfirmDialog.confirm(this, Confirmations.setJavaHome(selected, removeOthers.isSelected()))) {
+            return;
+        }
         Thread worker = new Thread(() -> {
             try {
                 new UserEnvironment().apply(selected, next);
