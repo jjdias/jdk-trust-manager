@@ -29,8 +29,9 @@ public final class TruststorePane extends BorderPane {
         filter.textProperty().addListener((obs, previous, text) -> showCertificates());
         Button load = new Button("Load cacerts");
         load.setOnAction(event -> load());
-        setTop(new VBox(8, load, source, filter));
+        setTop(new VBox(Spacing.GAP, load, source, filter));
         setCenter(rows);
+        Spacing.page(this);
         load();
     }
 

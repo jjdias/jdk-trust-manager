@@ -14,6 +14,7 @@ public final class ActivityPane extends BorderPane {
         area.setEditable(false);
         area.setFont(Font.font("Consolas", 12));
         setCenter(area);
+        Spacing.page(this);
         Thread worker = new Thread(() -> {
             try {
                 String text = Files.exists(logFile) ? Files.readString(logFile) : "";

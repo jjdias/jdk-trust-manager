@@ -143,8 +143,11 @@ public final class InstalledPane extends BorderPane {
                 }
             });
         });
-        setTop(new VBox(8, filter, new HBox(8, refresh, setToPath, remove, status)));
+        HBox actions = new HBox(Spacing.GAP, refresh, setToPath, remove, status);
+        actions.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        setTop(new VBox(Spacing.GAP, filter, actions));
         setCenter(rows);
+        Spacing.page(this);
         new Adopter();
         refresh.fire();
     }

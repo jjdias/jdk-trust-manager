@@ -57,7 +57,7 @@ public final class SettingsPane extends HBox {
                 message.setText("Could not save settings: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(8,
+        VBox form = new VBox(10,
                 new Label("Install root"),
                 root,
                 new Label("Catalog cache, hours"),
@@ -70,7 +70,7 @@ public final class SettingsPane extends HBox {
                 pause,
                 save,
                 message);
-        form.setPadding(new Insets(12));
+        form.setPadding(Spacing.PAGE);
         form.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #bdbdbd; -fx-border-width: 1;");
         Popup popup = new Popup();
         popup.setAutoHide(true);
@@ -86,7 +86,7 @@ public final class SettingsPane extends HBox {
             popup.show(options, bounds.getMinX(), bounds.getMaxY());
         });
         setAlignment(Pos.CENTER_LEFT);
-        setPadding(new Insets(4, 8, 4, 8));
+        setPadding(new Insets(8, 16, 8, 16));
         getChildren().add(options);
     }
 

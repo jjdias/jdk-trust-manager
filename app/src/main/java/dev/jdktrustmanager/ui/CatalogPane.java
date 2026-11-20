@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
-import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -40,6 +39,7 @@ public final class CatalogPane extends BorderPane {
         return thread;
     });
     private final Label detail = new Label("Select a major version.");
+    private final TextField filter = new TextField();
     private final java.util.List<VendorVersions> vendors = new ArrayList<>();
     private CatalogBrowser.Card selected;
 
@@ -53,16 +53,18 @@ public final class CatalogPane extends BorderPane {
         TreeItem<VersionNode> root = new TreeItem<>(new VersionNode("Vendors", null, -1));
         root.setExpanded(true);
         tree.setRoot(root);
-        TextField filter = new TextField();
         filter.setPromptText("Filter");
         filter.textProperty().addListener((obs, previous, text) -> showVendors(root, text));
         Button install = new Button("Install");
         install.setDisable(true);
         install.setOnAction(event -> queueInstall());
-        setTop(filter);
+        detail.setWrapText(true);
+        detail.setMinWidth(220);
+        detail.setMaxWidth(260);
+        setTop(new VBox(Spacing.GAP, install, filter));
         setCenter(tree);
-        setRight(new VBox(8, detail, install));
-        setPadding(new Insets(8));
+        setRight(detail);
+        Spacing.page(this);
         loadVendors(root, tree, install);
     }
 
@@ -73,7 +75,7 @@ public final class CatalogPane extends BorderPane {
                     java.util.List<Integer> majors = new ArrayList<>(browser.majors(distribution, settings.get()).keySet());
                     javafx.application.Platform.runLater(() -> {
                         vendors.add(new VendorVersions(distribution, majors));
-                        showVendors(root, ((TextField) getTop()).getText());
+                        showVendors(root, filter.getText());
                     });
                 }
             } catch (Exception ex) {

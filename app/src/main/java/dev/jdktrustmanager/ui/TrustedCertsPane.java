@@ -80,9 +80,9 @@ public final class TrustedCertsPane extends BorderPane {
                     .ifPresent(entry -> disable.setText(entry.enabled() ? "Disable" : "Enable"));
         });
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
-        setTop(new VBox(8, syncAll, note, new HBox(8, add, edit, disable, remove, importFile, exportFile), filter));
+        setTop(new VBox(Spacing.GAP, syncAll, note, new HBox(Spacing.GAP, add, edit, disable, remove, importFile, exportFile), filter));
         setCenter(table);
-        setPadding(new javafx.geometry.Insets(8));
+        Spacing.page(this);
         reload();
     }
 

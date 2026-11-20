@@ -26,8 +26,8 @@ public final class JobProgressPane extends VBox {
         TitledPane details = new TitledPane("Install log", log);
         details.setExpanded(false);
         VBox.setVgrow(details, Priority.NEVER);
-        setSpacing(4);
-        setPadding(new Insets(8, 8, 0, 8));
+        setSpacing(6);
+        setPadding(new Insets(8, 16, 12, 16));
         getChildren().addAll(status, bar, details);
         queue.subscribe(event -> javafx.application.Platform.runLater(() -> show(status, bar, log, event)));
     }

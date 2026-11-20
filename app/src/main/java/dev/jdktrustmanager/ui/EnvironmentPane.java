@@ -47,7 +47,8 @@ public final class EnvironmentPane extends VBox {
         this.root = root;
         this.installationsFile = installationsFile;
         this.stores = stores;
-        setSpacing(8);
+        setSpacing(Spacing.GAP);
+        setPadding(Spacing.PAGE);
         jdk.setPromptText("No JDK found");
         jdk.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(jdk, Priority.ALWAYS);
@@ -59,8 +60,14 @@ public final class EnvironmentPane extends VBox {
         VBox.setVgrow(variables, Priority.ALWAYS);
         Button refresh = new Button("Refresh");
         refresh.setOnAction(event -> reload());
-        getChildren().addAll(new HBox(8, new Label("Java variables"), refresh, status), variables, advanced());
+        getChildren().addAll(javaVariablesHeader(refresh), variables, advanced());
         reload();
+    }
+
+    private HBox javaVariablesHeader(Button refresh) {
+        HBox header = new HBox(Spacing.GAP, new Label("Java variables"), refresh, status);
+        header.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        return header;
     }
 
     private TitledPane advanced() {
@@ -77,13 +84,13 @@ public final class EnvironmentPane extends VBox {
         maven.setOnAction(event -> withSelected(target -> snippet.setText(ShellSnippets.mavenToolchain(target.home(), target.major()))));
         Button gradle = new Button("Gradle note");
         gradle.setOnAction(event -> withSelected(target -> snippet.setText(ShellSnippets.gradleNote(target.home(), target.major()))));
-        VBox contents = new VBox(8,
-                new HBox(8, new Label("JDK"), jdk),
+        VBox contents = new VBox(Spacing.GAP,
+                new HBox(Spacing.GAP, new Label("JDK"), jdk),
                 new Label("Already-open terminals keep the old environment."),
                 preview,
                 removeOthers,
                 apply,
-                new HBox(8, powershell, maven, gradle),
+                new HBox(Spacing.GAP, powershell, maven, gradle),
                 snippet);
         TitledPane pane = new TitledPane("Advanced commands", contents);
         pane.setExpanded(false);
