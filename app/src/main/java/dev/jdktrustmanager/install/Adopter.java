@@ -12,6 +12,56 @@ import java.util.stream.Stream;
 
 public final class Adopter {
 
+    /** Reads {@code source}'s release file and works out where it would be adopted to. */
+    public AdoptPlan plan(Path source, Path root) throws IOException {
+        if (!JdkScanner.isHome(source)) {
+            throw new IOException("Not a JDK home: " + source);
+        }
+        return AdoptPlan.of(source, root, ZipInstaller.readRelease(source.resolve("release")));
+    }
+
+    /**
+     * Brings a JDK under management. In place when it already sits at its managed folder; otherwise it is copied
+     * there and the original stays where it was. Never merges into an existing folder.
+     */
+    public Installation adopt(AdoptPlan plan, Path root, Path bundledRuntime) throws IOException {
+        Path destination = plan.destination();
+        Layout.checkInsideRoot(root, destination, bundledRuntime);
+        if (!plan.inPlace()) {
+            if (Files.exists(destination)) {
+                throw new IOException(destination + " already exists. Remove it or adopt that folder instead.");
+            }
+            Files.createDirectories(destination.getParent());
+            Path partial = destination.resolveSibling(destination.getFileName() + ".adopt-" + Instant.now().toEpochMilli());
+            try {
+                copy(plan.source(), partial);
+                Files.move(partial, destination);
+            } catch (IOException ex) {
+                ZipInstaller.deleteRecursively(partial);
+                throw ex;
+            }
+        }
+        Map<String, String> release = ZipInstaller.readRelease(destination.resolve("release"));
+        return new Installation(
+                plan.slug(),
+                plan.major(),
+                "",
+                release.getOrDefault("JAVA_VERSION", plan.javaVersion()),
+                plan.javafx(),
+                destination.toString(),
+                plan.architecture(),
+                release.getOrDefault("IMPLEMENTOR", plan.implementor()),
+                release.getOrDefault("JAVA_VERSION", plan.javaVersion()),
+                "",
+                Instant.now(),
+                InstallSource.ADOPTED,
+                false,
+                null,
+                null,
+                false,
+                "");
+    }
+
     public Installation adopt(Path source, Path root, String slug, int major, boolean move) throws IOException {
         if (!JdkScanner.isHome(source)) {
             throw new IOException("Not a JDK home: " + source);
@@ -32,7 +82,7 @@ public final class Adopter {
                 release.getOrDefault("JAVA_VERSION", ""),
                 slug.endsWith("-fx"),
                 destination.toString(),
-                release.getOrDefault("OS_ARCH", "x64"),
+                AdoptPlan.architecture(release.getOrDefault("OS_ARCH", "")),
                 release.getOrDefault("IMPLEMENTOR", ""),
                 release.getOrDefault("JAVA_VERSION", ""),
                 "",

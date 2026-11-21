@@ -35,6 +35,18 @@ public final class ZipInstaller {
         void bytes(long read, long total);
 
         void phase(String phase);
+
+        /** Checked between download chunks. Returning true stops the download and deletes the partial file. */
+        default boolean cancelled() {
+            return false;
+        }
+    }
+
+    /** Thrown when the user cancels a download. Nothing was installed and the partial zip is gone. */
+    public static final class CancelledException extends IOException {
+        public CancelledException() {
+            super("Download cancelled");
+        }
     }
 
     @FunctionalInterface
@@ -191,9 +203,14 @@ public final class ZipInstaller {
             long read = 0;
             long nextLog = Math.max(total / 10, 1);
             byte[] buffer = new byte[8192];
+            boolean cancelled = false;
             try (InputStream input = response.body(); OutputStream output = Files.newOutputStream(target)) {
                 int n;
                 while ((n = input.read(buffer)) >= 0) {
+                    if (progress != null && progress.cancelled()) {
+                        cancelled = true;
+                        break;
+                    }
                     output.write(buffer, 0, n);
                     read += n;
                     if (progress != null) {
@@ -204,6 +221,10 @@ public final class ZipInstaller {
                         nextLog += Math.max(total / 10, 1);
                     }
                 }
+            }
+            if (cancelled) {
+                Files.deleteIfExists(target);
+                throw new CancelledException();
             }
             note(progress, "Saved " + target + " (" + read + " bytes)");
         } catch (InterruptedException ex) {

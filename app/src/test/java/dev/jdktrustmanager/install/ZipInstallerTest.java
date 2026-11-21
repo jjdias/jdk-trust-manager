@@ -135,4 +135,49 @@ class ZipInstallerTest {
             server.stop(0);
         }
     }
+
+    @Test
+    void cancellingADownloadStopsItAndDeletesThePartialFile() throws Exception {
+        byte[] body = new byte[256 * 1024];
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/big", exchange -> {
+            exchange.sendResponseHeaders(200, body.length);
+            try (var out = exchange.getResponseBody()) {
+                out.write(body);
+            } catch (java.io.IOException ignored) {
+                // The client hangs up when it cancels.
+            }
+            exchange.close();
+        });
+        server.start();
+        java.util.concurrent.atomic.AtomicLong seen = new java.util.concurrent.atomic.AtomicLong();
+        ZipInstaller.InstallProgress progress = new ZipInstaller.InstallProgress() {
+            @Override
+            public void log(String line) {
+            }
+
+            @Override
+            public void bytes(long read, long total) {
+                seen.set(read);
+            }
+
+            @Override
+            public void phase(String phase) {
+            }
+
+            @Override
+            public boolean cancelled() {
+                return seen.get() > 0;
+            }
+        };
+        try {
+            Path target = directory.resolve("cancelled.zip");
+            org.junit.jupiter.api.Assertions.assertThrows(ZipInstaller.CancelledException.class, () -> new ZipInstaller()
+                    .download("http://127.0.0.1:" + server.getAddress().getPort() + "/big", target, body.length, progress));
+            org.junit.jupiter.api.Assertions.assertFalse(Files.exists(target));
+            org.junit.jupiter.api.Assertions.assertTrue(seen.get() < body.length);
+        } finally {
+            server.stop(0);
+        }
+    }
 }

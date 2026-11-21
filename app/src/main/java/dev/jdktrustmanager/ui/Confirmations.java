@@ -25,6 +25,25 @@ public final class Confirmations {
         return new Prompt("Set JAVA_HOME", message, "Set JAVA_HOME");
     }
 
+    public static Prompt adopt(String source, String destination, boolean inPlace) {
+        if (inPlace) {
+            return new Prompt("Adopt JDK",
+                    "Manage " + source + " with this app?\n\nNothing is moved. Trusted certificates are added to its cacerts, with a backup first.",
+                    "Adopt");
+        }
+        return new Prompt("Adopt JDK",
+                "Copy " + source + " to " + destination + " and manage the copy?\n\nThe original stays where it is. Trusted certificates are added to the copy's cacerts.",
+                "Copy and adopt");
+    }
+
+    public static Prompt update(String home, String currentVersion, String newVersion) {
+        return new Prompt("Update JDK",
+                "Replace " + currentVersion + " in " + home + " with " + newVersion + "?\n\n"
+                        + "The folder stays the same, so JAVA_HOME and PATH keep working. If the install fails, the old version is put back. "
+                        + "Close programs running from this JDK first.",
+                "Update");
+    }
+
     public static Prompt removeUrl(String url) {
         return new Prompt("Remove URL",
                 "Remove " + url + " from the trusted URLs?\n\nCertificates already imported from it stay in each JDK's cacerts. Sync doesn't remove them.",

@@ -25,8 +25,11 @@ Get-FileHash .\JdkTrustManager-*-windows-x64.zip -Algorithm SHA256
 - Lists vendors and versions from the Disco API. Only GA, x64, portable `.zip` builds that are free for production use are shown.
 - Downloads the zip, checks its SHA-256, unzips it safely, and places it at `C:\Java\<vendor>-<major>\`.
 - A newer patch of the same vendor and major replaces that folder. If the new build fails its checks, the old one is restored.
+- A download can be cancelled until unzipping starts. The partial file is deleted.
 - Never uses MSI or winget.
 - Lists JDKs already on disk and uninstalls managed ones. Uninstall only deletes folders inside the configured root.
+- Adopts a JDK that is already on disk. One already at its `C:\Java\<vendor>-<major>\` folder is managed in place; anything else is copied there and the original is left alone.
+- Checks the catalog for newer patches of managed JDKs and updates them in place. Pinned JDKs are never updated or removed.
 
 **Switches the active JDK.**
 - Writes `JAVA_HOME` and a single `%JAVA_HOME%\bin` entry at the front of `PATH`, directly in the registry, and shows a preview first.
@@ -39,6 +42,7 @@ Get-FileHash .\JdkTrustManager-*-windows-x64.zip -Algorithm SHA256
 - Imports every checked certificate into every managed JDK's `cacerts`, using that JDK's own `keytool`, under `jkm-<sha256 prefix>` aliases.
 - Never replaces or removes vendor aliases. Backs up `cacerts` before each write.
 - Syncs at startup when the last sync is more than 24 hours old, and whenever you press Sync. Automatic sync can be paused.
+- Saves an HTML report of managed JDKs, the active `JAVA_HOME`, and certificates in the active JDK's `cacerts` that are expired or expire within 30 days.
 
 ## Layout
 
@@ -61,7 +65,7 @@ The root folder is configurable. Creating `C:\Java` or writing system-wide varia
 
 ## Screens
 
-Catalog, Installed, Environment, Truststore, Trusted certificates, and Activity. Settings are in the **Options** menu. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
+Catalog, Installed, Environment, Truststore, Trusted certificates, and Activity. Settings are in the **Options** menu. Actions that delete a JDK, change `JAVA_HOME`, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
 
 ## Build and run
 

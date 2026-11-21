@@ -1,5 +1,6 @@
 package dev.jdktrustmanager;
 
+import dev.jdktrustmanager.catalog.CatalogBrowser;
 import dev.jdktrustmanager.catalog.DiscoCatalog;
 import dev.jdktrustmanager.catalog.DiscoClient;
 import dev.jdktrustmanager.install.WorkQueue;
@@ -38,12 +39,14 @@ public class JdkTrustManagerApp extends Application {
         AtomicReference<Settings> current = new AtomicReference<>(settings);
         DiscoClient client = DiscoClient.live();
         WorkQueue queue = new WorkQueue(AppFiles.logs());
-        CatalogPane catalog = new CatalogPane(client, new DiscoCatalog(client, stores, AppFiles.catalog()), queue, current::get);
+        DiscoCatalog discoCatalog = new DiscoCatalog(client, stores, AppFiles.catalog());
+        CatalogPane catalog = new CatalogPane(client, discoCatalog, queue, current::get);
         Path runtimeHome = Path.of(System.getProperty("java.home"));
         Path managedRoot = Path.of(settings.rootDirectory());
         Path bundledRuntime = runtimeHome.startsWith(managedRoot) ? null : runtimeHome;
-        InstalledPane installed = new InstalledPane(managedRoot, AppFiles.installations(), stores, queue, bundledRuntime);
-        TruststorePane truststore = new TruststorePane();
+        InstalledPane installed = new InstalledPane(managedRoot, AppFiles.installations(), stores, queue, bundledRuntime,
+                new CatalogBrowser(discoCatalog), client, current::get);
+        TruststorePane truststore = new TruststorePane(AppFiles.installations(), stores, getHostServices()::showDocument);
         TrustedCertsPane trusted = new TrustedCertsPane(managedRoot, AppFiles.installations(), bundledRuntime, queue);
         Path lastSync = managedRoot.resolve("trusted-certs").resolve("last-sync");
         if (TrustSchedule.due(lastSync, settings.pauseAutomaticTrustSync(), Instant.now())) {

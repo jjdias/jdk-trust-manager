@@ -33,6 +33,24 @@ class ConfirmationsTest {
     }
 
     @Test
+    void adoptSaysWhetherItCopiesOrStaysInPlace() {
+        Confirmations.Prompt copy = Confirmations.adopt("C:\\Program Files\\Zulu\\zulu-17", "C:\\Java\\zulu-17", false);
+        Confirmations.Prompt inPlace = Confirmations.adopt("C:\\Java\\temurin-21", "C:\\Java\\temurin-21", true);
+        assertEquals("Copy and adopt", copy.action());
+        assertTrue(copy.message().contains("original stays"));
+        assertEquals("Adopt", inPlace.action());
+        assertTrue(inPlace.message().contains("Nothing is moved"));
+    }
+
+    @Test
+    void updateNamesBothVersions() {
+        Confirmations.Prompt prompt = Confirmations.update("C:\\Java\\temurin-21", "21.0.13", "21.0.14+7");
+        assertTrue(prompt.message().contains("21.0.13"));
+        assertTrue(prompt.message().contains("21.0.14+7"));
+        assertTrue(prompt.message().contains("old version is put back"));
+    }
+
+    @Test
     void syncAllMentionsBackups() {
         assertTrue(Confirmations.syncAll().message().contains("backup"));
     }

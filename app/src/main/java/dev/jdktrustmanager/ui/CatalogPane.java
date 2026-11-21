@@ -4,14 +4,10 @@ import dev.jdktrustmanager.catalog.CatalogBrowser;
 import dev.jdktrustmanager.catalog.DiscoCatalog;
 import dev.jdktrustmanager.catalog.DiscoClient;
 import dev.jdktrustmanager.install.WorkQueue;
-import dev.jdktrustmanager.install.ZipInstaller;
 import dev.jdktrustmanager.model.CatalogPackage;
 import dev.jdktrustmanager.model.Distribution;
 import dev.jdktrustmanager.model.Settings;
-import dev.jdktrustmanager.persist.AppFiles;
 import dev.jdktrustmanager.persist.JsonStores;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -30,7 +26,6 @@ public final class CatalogPane extends BorderPane {
     private final CatalogBrowser browser;
     private final DiscoClient client;
     private final WorkQueue queue;
-    private final ZipInstaller installer = new ZipInstaller();
     private final Supplier<Settings> settings;
     private final JsonStores stores = new JsonStores();
     private final ExecutorService lookup = Executors.newSingleThreadExecutor(runnable -> {
@@ -154,69 +149,6 @@ public final class CatalogPane extends BorderPane {
         if (card == null || card.pkg() == null) {
             return;
         }
-        queue.submit(new WorkQueue.Job() {
-            @Override
-            public WorkQueue.Kind kind() {
-                return WorkQueue.Kind.INSTALL;
-            }
-
-            @Override
-            public void run(WorkQueue.Progress progress) throws Exception {
-                progress.log("Install " + card.vendor() + " " + card.major() + " " + card.pkg().javaVersion());
-                progress.state(WorkQueue.State.DOWNLOADING);
-                if (progress.cancelled()) {
-                    progress.log("Download cancelled");
-                    return;
-                }
-                var packageDetail = client.packageDetail(card.pkg().id());
-                Path root = Path.of(settings.get().rootDirectory());
-                Path runtimeHome = Path.of(System.getProperty("java.home"));
-                Path bundled = runtimeHome.startsWith(root) ? null : runtimeHome;
-                var installed = installer.install(card.pkg(), packageDetail, root, AppFiles.zipCache(), bundled, home -> {
-                    progress.state(WorkQueue.State.UPDATING_TRUSTSTORE);
-                    progress.log("Replaying trusted certificates");
-                    try {
-                        new dev.jdktrustmanager.trust.TrustSync().syncHomes(root, java.util.List.of(home), bundled, progress::log);
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        throw new java.io.IOException(ex);
-                    }
-                }, new ZipInstaller.InstallProgress() {
-                    @Override
-                    public void log(String line) {
-                        progress.log(line);
-                    }
-
-                    @Override
-                    public void bytes(long read, long total) {
-                        progress.bytes(read, total);
-                    }
-
-                    @Override
-                    public void phase(String phase) {
-                        progress.log(phase);
-                        if (phase.startsWith("Verifying")) {
-                            progress.state(WorkQueue.State.VERIFYING);
-                        }
-                        if (phase.startsWith("Unpacking")) {
-                            queue.markUnzipStarted();
-                            progress.state(WorkQueue.State.UNPACKING);
-                        }
-                    }
-                });
-                remember(installed);
-                progress.log("Installed " + installed.path());
-            }
-        });
-    }
-
-    private void remember(dev.jdktrustmanager.model.Installation installed) throws java.io.IOException {
-        Path file = AppFiles.installations();
-        List<dev.jdktrustmanager.model.Installation> known = Files.exists(file)
-                ? new ArrayList<>(stores.readInstallations(file))
-                : new ArrayList<>();
-        known.removeIf(item -> item.path().equals(installed.path()));
-        known.add(installed);
-        stores.writeInstallations(file, known);
+        queue.submit(new InstallJob(card, client, settings, queue, stores, null));
     }
 }
