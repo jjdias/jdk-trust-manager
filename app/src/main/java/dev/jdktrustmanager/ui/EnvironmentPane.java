@@ -126,7 +126,7 @@ public final class EnvironmentPane extends VBox {
         }
         Thread worker = new Thread(() -> {
             try {
-                new UserEnvironment().apply(selected, next);
+                new UserEnvironment().apply(dev.jdktrustmanager.env.EnvironmentPlan.forJava(rawUserPath, root, selected, removeOthers.isSelected()));
                 if (Files.exists(installationsFile)) {
                     stores.writeInstallations(installationsFile,
                             Installations.markActive(stores.readInstallations(installationsFile), selected));

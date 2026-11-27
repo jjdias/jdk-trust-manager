@@ -195,8 +195,8 @@ public final class InstalledPane extends BorderPane {
             if (current.isBlank()) {
                 throw new IOException("User Path could not be read");
             }
-            String next = PathEditor.edit(current, root.toString(), false);
-            new UserEnvironment().apply(path, next);
+            var plan = dev.jdktrustmanager.env.EnvironmentPlan.forJava(current, root.toString(), path, false);
+            new UserEnvironment().apply(plan);
             if (Files.exists(installationsFile)) {
                 stores.writeInstallations(installationsFile, Installations.markActive(known(), path));
             }
