@@ -14,8 +14,15 @@ OpenJFX 21 (javafx.base, javafx.graphics, javafx.controls), linked into runtime\
   runtime\legal\java.base\LICENSE and runtime\legal\java.base\ASSEMBLY_EXCEPTION.
   Source: https://github.com/openjdk/jfx
 
-Jackson 2.18 (jackson-annotations, jackson-core, jackson-databind,
+Jackson 2.23 (jackson-annotations, jackson-core, jackson-databind,
 jackson-datatype-jsr310), in app\
   License: Apache License, version 2.0.
   The license and NOTICE files are inside each jar under META-INF\.
   Source: https://github.com/FasterXML/jackson
+
+Bouncy Castle 1.86 (bcprov-jdk18on, bcpg-jdk18on, bcutil-jdk18on), in app\
+  Used to check the PGP signatures of Maven and Ant downloads.
+  License: Bouncy Castle License (an MIT-style license),
+  https://www.bouncycastle.org/licence.html
+  The license text is inside each jar under META-INF\.
+  Source: https://github.com/bcgit/bc-java
