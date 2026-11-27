@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class SmokeTest {
 
     @Test
-    void applicationListsTheSixScreens() {
+    void javaTabKeepsTheSixScreens() {
         assertEquals(
                 List.of(
                         "Catalog",
@@ -19,5 +19,11 @@ class SmokeTest {
                         "Trusted certificates",
                         "Activity"),
                 Screens.NAMES);
+    }
+
+    @Test
+    void topLevelTabsAndToolScreens() {
+        assertEquals(List.of("Java", "Maven", "Ant", "Gradle"), Screens.TOP_LEVEL);
+        assertEquals(List.of("Versions", "Installed", "Environment"), Screens.TOOL);
     }
 }

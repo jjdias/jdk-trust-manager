@@ -27,6 +27,7 @@ public final class SettingsPane extends HBox {
         CheckBox graal = box("Show GraalVM", initial.showGraalvm());
         CheckBox javafx = box("Show JavaFX", initial.showJavafxBuilds());
         CheckBox pause = box("Pause automatic trust sync", initial.pauseAutomaticTrustSync());
+        CheckBox toolPreReleases = box("Show build tool pre-releases", initial.showBuildToolPreReleases());
         Button save = new Button("Save");
         Label message = new Label();
         message.setWrapText(true);
@@ -48,7 +49,8 @@ public final class SettingsPane extends HBox {
                     early.isSelected(),
                     graal.isSelected(),
                     javafx.isSelected(),
-                    pause.isSelected());
+                    pause.isSelected(),
+                    toolPreReleases.isSelected());
             try {
                 stores.writeSettings(file, next);
                 onChange.accept(next);
@@ -68,6 +70,7 @@ public final class SettingsPane extends HBox {
                 graal,
                 javafx,
                 pause,
+                toolPreReleases,
                 save,
                 message);
         form.setPadding(Spacing.PAGE);

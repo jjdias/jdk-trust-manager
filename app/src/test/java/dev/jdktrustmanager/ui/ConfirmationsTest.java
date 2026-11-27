@@ -51,6 +51,30 @@ class ConfirmationsTest {
     }
 
     @Test
+    void installToolNamesTheFolderAndHowItIsChecked() {
+        Confirmations.Prompt signed = Confirmations.installTool("Maven", "3.3.9", "C:\\Java\\build-tools\\maven-3.3.9", true);
+        Confirmations.Prompt gradle = Confirmations.installTool("Gradle", "8.10.2", "C:\\Java\\build-tools\\gradle-8.10.2", false);
+        assertEquals("Install", signed.action());
+        assertTrue(signed.message().contains("C:\\Java\\build-tools\\maven-3.3.9"));
+        assertTrue(signed.message().contains("signing keys"));
+        assertTrue(gradle.message().contains("SHA-256"));
+    }
+
+    @Test
+    void setToolPathIncludesTheJavaWarningWhenGiven() {
+        Confirmations.Prompt plain = Confirmations.setToolPath("Maven", "4.0.0", null);
+        Confirmations.Prompt warned = Confirmations.setToolPath("Maven", "4.0.0", "Maven 4.0.0 needs Java 17 or newer; JAVA_HOME is Java 8.");
+        assertTrue(plain.message().contains("MAVEN") || plain.message().contains("Maven 4.0.0"));
+        assertTrue(warned.message().contains("needs Java 17 or newer"));
+    }
+
+    @Test
+    void removeToolAndRemoveFromPathNameWhatChanges() {
+        assertTrue(Confirmations.removeTool("Ant", "1.9.16", "C:\\Java\\build-tools\\ant-1.9.16").message().contains("C:\\Java\\build-tools\\ant-1.9.16"));
+        assertTrue(Confirmations.removeToolFromPath("Maven", java.util.List.of("MAVEN_HOME", "M2_HOME")).message().contains("M2_HOME"));
+    }
+
+    @Test
     void syncAllMentionsBackups() {
         assertTrue(Confirmations.syncAll().message().contains("backup"));
     }

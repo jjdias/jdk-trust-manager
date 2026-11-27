@@ -114,9 +114,25 @@ class JsonStoresTest {
                 false,
                 false,
                 false,
-                false);
+                false,
+                true);
         Path file = directory.resolve("settings.json");
         stores.writeSettings(file, settings);
         assertEquals(settings, stores.readSettings(file));
+    }
+
+    @Test
+    void settingsFromBeforeBuildToolsReadWithPreReleasesHidden() throws Exception {
+        Path file = directory.resolve("old-settings.json");
+        Files.writeString(file, """
+                {"rootDirectory":"C:\\\\Java","environmentScope":"user","catalogMaxAgeHours":24,"hideMajorsBelow8":true,
+                 "hideUpstreamEndOfLife":false,"showEarlyAccess":false,"showGraalvm":false,"showJavafxBuilds":false,
+                 "pauseAutomaticTrustSync":false}
+                """);
+
+        Settings read = stores.readSettings(file);
+
+        assertEquals("C:\\Java", read.rootDirectory());
+        assertFalse(read.showBuildToolPreReleases());
     }
 }
