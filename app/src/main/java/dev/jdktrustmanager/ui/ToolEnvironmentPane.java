@@ -5,7 +5,7 @@ import dev.jdktrustmanager.env.EnvironmentPlan;
 import dev.jdktrustmanager.env.JavaVariables;
 import dev.jdktrustmanager.env.PathEditor;
 import dev.jdktrustmanager.env.RegistryEnvironment;
-import dev.jdktrustmanager.env.UserEnvironment;
+import dev.jdktrustmanager.env.UserPathWriter;
 import dev.jdktrustmanager.install.WorkQueue;
 import dev.jdktrustmanager.model.ToolInstallation;
 import dev.jdktrustmanager.model.ToolInstallations;
@@ -70,6 +70,8 @@ final class ToolEnvironmentPane extends VBox {
         refresh.setOnAction(event -> refresh());
         set.setOnAction(event -> setSelected());
         removeFromPath.setOnAction(event -> removeFromPath());
+        removeFromPath.setDisable(true);
+        set.setDisable(true);
         HBox header = new HBox(Spacing.GAP, new Label(tool.displayName() + " variables"), refresh);
         header.setAlignment(Pos.CENTER_LEFT);
         HBox chooser = new HBox(Spacing.GAP, new Label("Version"), version);
@@ -125,7 +127,11 @@ final class ToolEnvironmentPane extends VBox {
                     updatePreview();
                 });
             } catch (Exception ex) {
-                Platform.runLater(() -> status.setText(ex.getMessage()));
+                Platform.runLater(() -> {
+                    status.setText("Couldn't read the environment: " + ex.getMessage());
+                    set.setDisable(true);
+                    removeFromPath.setDisable(true);
+                });
             }
         });
     }
@@ -162,9 +168,9 @@ final class ToolEnvironmentPane extends VBox {
                 context.javaWarning(tool, row.version())))) {
             return;
         }
-        EnvironmentPlan plan = plan(row.path());
+        List<String> remove = removeOthers.isSelected() ? others : List.of();
         submit(() -> {
-            new UserEnvironment().apply(plan);
+            UserPathWriter.live().write(current -> EnvironmentPlan.forTool(current, context.root().toString(), tool, row.path(), remove));
             context.update(all -> ToolInstallations.markActive(all, tool.tool(), row.path()));
             return tool.displayName() + " " + row.version() + " is on PATH. Open a new terminal to use it.";
         });
@@ -174,9 +180,9 @@ final class ToolEnvironmentPane extends VBox {
         if (!ConfirmDialog.confirm(this, Confirmations.removeToolFromPath(tool.displayName(), tool.homeVariables()))) {
             return;
         }
-        EnvironmentPlan plan = plan(null);
+        List<String> remove = removeOthers.isSelected() ? others : List.of();
         submit(() -> {
-            new UserEnvironment().apply(plan);
+            UserPathWriter.live().write(current -> EnvironmentPlan.forTool(current, context.root().toString(), tool, null, remove));
             context.update(all -> ToolInstallations.markActive(all, tool.tool(), null));
             return tool.displayName() + " is no longer on PATH.";
         });

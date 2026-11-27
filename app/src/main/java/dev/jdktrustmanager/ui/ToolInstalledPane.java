@@ -5,7 +5,7 @@ import dev.jdktrustmanager.buildtools.ToolAdopter;
 import dev.jdktrustmanager.buildtools.ToolLayout;
 import dev.jdktrustmanager.env.EnvironmentPlan;
 import dev.jdktrustmanager.env.RegistryEnvironment;
-import dev.jdktrustmanager.env.UserEnvironment;
+import dev.jdktrustmanager.env.UserPathWriter;
 import dev.jdktrustmanager.install.WorkQueue;
 import dev.jdktrustmanager.model.ToolInstallation;
 import dev.jdktrustmanager.model.ToolInstallations;
@@ -136,9 +136,7 @@ final class ToolInstalledPane extends BorderPane {
             return;
         }
         submit(WorkQueue.Kind.ADOPT, progress -> {
-            String current = RegistryEnvironment.query(RegistryEnvironment.USER, "Path");
-            EnvironmentPlan plan = EnvironmentPlan.forTool(current, context.root().toString(), tool, row.path(), List.of());
-            new UserEnvironment().apply(plan);
+            UserPathWriter.live().write(current -> EnvironmentPlan.forTool(current, context.root().toString(), tool, row.path(), List.of()));
             context.update(all -> ToolInstallations.markActive(all, tool.tool(), row.path()));
             return tool.displayName() + " " + row.version() + " is on PATH. Open a new terminal to use it.";
         });

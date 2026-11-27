@@ -40,6 +40,18 @@ public final class RegistryEnvironment {
         return entries(output);
     }
 
+    /** Like {@link #queryAll}, but a failed {@code reg query} is empty rather than an empty map. */
+    public static java.util.Optional<Map<String, String>> readAll(String key) throws IOException, InterruptedException {
+        Process process = new ProcessBuilder("reg", "query", key)
+                .redirectErrorStream(true)
+                .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        if (process.waitFor() != 0) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(entries(output));
+    }
+
     public static Map<String, String> entries(String output) {
         Map<String, String> values = new LinkedHashMap<>();
         if (output == null) {

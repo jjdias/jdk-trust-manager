@@ -124,9 +124,11 @@ public final class EnvironmentPane extends VBox {
         if (!ConfirmDialog.confirm(this, Confirmations.setJavaHome(selected, removeOthers.isSelected()))) {
             return;
         }
+        boolean removeOtherJava = removeOthers.isSelected();
         Thread worker = new Thread(() -> {
             try {
-                new UserEnvironment().apply(dev.jdktrustmanager.env.EnvironmentPlan.forJava(rawUserPath, root, selected, removeOthers.isSelected()));
+                dev.jdktrustmanager.env.UserPathWriter.live()
+                        .write(current -> dev.jdktrustmanager.env.EnvironmentPlan.forJava(current, root, selected, removeOtherJava));
                 if (Files.exists(installationsFile)) {
                     stores.writeInstallations(installationsFile,
                             Installations.markActive(stores.readInstallations(installationsFile), selected));
