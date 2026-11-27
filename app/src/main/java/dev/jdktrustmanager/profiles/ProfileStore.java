@@ -24,12 +24,51 @@ public final class ProfileStore {
         if (!Files.exists(file)) {
             return List.of();
         }
+        ProfilesDocument document;
         try {
-            ProfilesDocument document = stores.readJson(file, ProfilesDocument.class);
-            return document.profiles() == null ? List.of() : sorted(document.profiles());
+            document = stores.readJson(file, ProfilesDocument.class);
         } catch (IOException | RuntimeException ex) {
             throw new IOException("Couldn't read profiles.json: " + ex.getMessage(), ex);
         }
+        if (document.version() > ProfilesDocument.CURRENT) {
+            throw new IOException("Couldn't read profiles.json: it was written by a newer version of JDK Trust Manager.");
+        }
+        List<Profile> profiles = document.profiles() == null ? List.of() : document.profiles();
+        for (Profile profile : profiles) {
+            String problem = problem(profile);
+            if (problem != null) {
+                throw new IOException("Couldn't read profiles.json: " + problem);
+            }
+        }
+        return sorted(profiles);
+    }
+
+    /** Why a stored profile can't be used (a hand edit, usually), or null when it's fine. */
+    static String problem(Profile profile) {
+        if (profile == null || profile.name() == null || profile.name().isBlank()) {
+            return "a profile has no name.";
+        }
+        String name = profile.name().trim();
+        if (profile.jdk() == null || profile.jdk().vendorSlug() == null) {
+            return "the profile " + name + " has no JDK.";
+        }
+        try {
+            dev.jdktrustmanager.install.Layout.destination(Path.of("."), profile.jdk().vendorSlug(), profile.jdk().major());
+        } catch (IllegalArgumentException ex) {
+            return "the profile " + name + " has an invalid JDK (" + profile.jdk().vendorSlug() + ").";
+        }
+        for (var tool : dev.jdktrustmanager.buildtools.BuildTools.ALL) {
+            String version = profile.version(tool.tool());
+            if (version == null) {
+                continue;
+            }
+            try {
+                dev.jdktrustmanager.buildtools.ToolLayout.destination(Path.of("."), tool, version);
+            } catch (IllegalArgumentException ex) {
+                return "the profile " + name + " has an invalid " + tool.displayName() + " version (" + version + ").";
+            }
+        }
+        return null;
     }
 
     /** Validates {@code edited}, replaces the profile named {@code originalNameOrNull} (or adds it), and writes. */
@@ -70,7 +109,7 @@ public final class ProfileStore {
 
     private List<Profile> write(List<Profile> profiles) throws IOException {
         List<Profile> next = sorted(profiles);
-        stores.writeJson(file, new ProfilesDocument(next));
+        stores.writeJson(file, new ProfilesDocument(ProfilesDocument.CURRENT, next));
         return next;
     }
 

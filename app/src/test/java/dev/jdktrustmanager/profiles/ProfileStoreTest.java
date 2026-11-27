@@ -85,6 +85,39 @@ class ProfileStoreTest {
     }
 
     @Test
+    void aFileFromANewerVersionIsReportedAndLeftAlone() throws Exception {
+        Path file = directory.resolve("profiles.json");
+        String newer = "{\"version\":2,\"profiles\":[{\"name\":\"Main\",\"jdk\":{\"vendorSlug\":\"temurin\",\"major\":21},\"terminal\":\"wt\"}]}";
+        Files.writeString(file, newer);
+
+        IOException error = assertThrows(IOException.class, () -> store().read());
+
+        assertTrue(error.getMessage().contains("newer version of JDK Trust Manager"));
+        assertEquals(newer, Files.readString(file));
+    }
+
+    @Test
+    void savedFilesCarryTheFormatVersion() throws Exception {
+        store().save(List.of(), main(), null);
+
+        assertTrue(Files.readString(directory.resolve("profiles.json")).contains("\"version\" : 1"));
+    }
+
+    @Test
+    void aMalformedProfileNamesItselfAndLeavesTheFileAlone() throws Exception {
+        Path file = directory.resolve("profiles.json");
+        String bad = "{\"version\":1,\"profiles\":[{\"name\":\"Broken\",\"jdk\":{\"vendorSlug\":\"..\\\\evil\",\"major\":8}},"
+                + "{\"name\":\"NoJdk\"},{\"name\":\"BadMaven\",\"jdk\":{\"vendorSlug\":\"temurin\",\"major\":8},\"maven\":\"3.3 9\"}]}";
+        Files.writeString(file, bad);
+
+        IOException error = assertThrows(IOException.class, () -> store().read());
+
+        assertTrue(error.getMessage().startsWith("Couldn't read profiles.json"));
+        assertTrue(error.getMessage().contains("Broken"));
+        assertEquals(bad, Files.readString(file));
+    }
+
+    @Test
     void anUnreadableFileIsReportedAndLeftAlone() throws Exception {
         Path file = directory.resolve("profiles.json");
         Files.writeString(file, "{not json");
