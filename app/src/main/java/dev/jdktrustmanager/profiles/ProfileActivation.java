@@ -25,6 +25,24 @@ public final class ProfileActivation {
         return lines;
     }
 
+    /**
+     * PATH entries the app doesn't manage (a hand-made {@code C:\tools\apache-maven-3.6.3\bin}, {@code %M2_HOME%\bin}, a
+     * Chocolatey or Scoop folder) that would still provide a tool this profile leaves out. Activation doesn't remove them,
+     * so the prompt says so. Tools in the profile come first on PATH, so their leftovers don't matter.
+     */
+    public static List<String> leftoverEntries(ProfileResolver.Resolved resolved, String currentPath, String root) {
+        List<String> lines = new ArrayList<>();
+        for (BuildTool tool : BuildTools.ALL) {
+            if (resolved.tools().containsKey(tool.tool())) {
+                continue;
+            }
+            for (String entry : dev.jdktrustmanager.env.PathEditor.otherEntriesFor(currentPath, root, tool)) {
+                lines.add(entry + " stays on PATH and still provides " + tool.displayName() + ".");
+            }
+        }
+        return lines;
+    }
+
     /** One sentence for each tool whose Java range doesn't include the profile's JDK. */
     public static List<String> javaWarnings(Profile profile) {
         List<String> warnings = new ArrayList<>();

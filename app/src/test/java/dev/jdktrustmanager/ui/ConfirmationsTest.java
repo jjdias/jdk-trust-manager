@@ -97,6 +97,14 @@ class ConfirmationsTest {
     }
 
     @Test
+    void activateProfileWarnsAboutEntriesThatStayOnPath() {
+        Confirmations.Prompt prompt = Confirmations.activateProfile("Bare", java.util.List.of("Maven → off PATH"), java.util.List.of(),
+                java.util.List.of("C:\\tools\\apache-maven-3.6.3\\bin stays on PATH and still provides Maven."), "%JAVA_HOME%\\bin");
+        assertTrue(prompt.message().contains("C:\\tools\\apache-maven-3.6.3\\bin stays on PATH"));
+        assertTrue(prompt.message().contains("Environment screen"));
+    }
+
+    @Test
     void installMissingSaysWhatCannotBeInstalled() {
         Confirmations.Prompt prompt = Confirmations.installMissing("Release 4.2", java.util.List.of("Maven 3.3.9"), java.util.List.of("acme-builds 8"));
         assertEquals("Install the others", prompt.action());

@@ -85,6 +85,22 @@ public final class Confirmations {
     }
 
     public static Prompt activateProfile(String name, java.util.List<String> changes, java.util.List<String> javaWarnings, String newPath) {
+        return activateProfile(name, changes, javaWarnings, java.util.List.of(), newPath);
+    }
+
+    /** {@code leftovers}: unmanaged PATH entries that still provide a tool the profile leaves out. */
+    public static Prompt activateProfile(String name, java.util.List<String> changes, java.util.List<String> javaWarnings,
+            java.util.List<String> leftovers, String newPath) {
+        Prompt base = activateProfileCore(name, changes, javaWarnings, newPath);
+        if (leftovers.isEmpty()) {
+            return base;
+        }
+        String note = "\n\nThese entries aren't managed by the app and stay on PATH:\n  " + String.join("\n  ", leftovers)
+                + "\nRemove them on that tool's Environment screen (\"Remove other entries\") if you don't want them.";
+        return new Prompt(base.title(), base.message() + note, base.action());
+    }
+
+    private static Prompt activateProfileCore(String name, java.util.List<String> changes, java.util.List<String> javaWarnings, String newPath) {
         StringBuilder message = new StringBuilder();
         for (String warning : javaWarnings) {
             message.append(warning).append('\n');

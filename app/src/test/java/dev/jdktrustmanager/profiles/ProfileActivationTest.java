@@ -45,6 +45,19 @@ class ProfileActivationTest {
     }
 
     @Test
+    void unmanagedEntriesThatStillProvideAnOmittedToolAreListed() {
+        String path = "%JAVA_HOME%\\bin;C:\\tools\\apache-maven-3.6.3\\bin;%M2_HOME%\\bin;C:\\ProgramData\\chocolatey\\lib\\gradle\\tools\\gradle-7.6\\bin;C:\\Windows";
+        Profile withMaven = new Profile("M", new JdkRef("temurin", 8), "3.3.9", null, null);
+
+        assertEquals(List.of(
+                        "C:\\ProgramData\\chocolatey\\lib\\gradle\\tools\\gradle-7.6\\bin stays on PATH and still provides Gradle."),
+                ProfileActivation.leftoverEntries(ProfileResolver.resolve(withMaven, root), path, root.toString()));
+        Profile bare = new Profile("B", new JdkRef("temurin", 8), null, null, null);
+        assertEquals(3, ProfileActivation.leftoverEntries(ProfileResolver.resolve(bare, root), path, root.toString()).size());
+        assertEquals(List.of(), ProfileActivation.leftoverEntries(ProfileResolver.resolve(bare, root), "C:\\Windows", root.toString()));
+    }
+
+    @Test
     void jdkSourceFindsTheCatalogVendorForASlug() {
         List<Distribution> vendors = List.of(
                 new Distribution("Temurin", "temurin", true, true, false, List.of()),

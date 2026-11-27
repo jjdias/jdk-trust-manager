@@ -316,7 +316,8 @@ public final class ProfilesPane extends BorderPane {
     private void confirmAndActivate(Profile profile, ProfileResolver.Resolved resolved, List<WorkQueue.Job> installsFirst) {
         String preview = plan(profile, resolved, snapshot.userPath()).path();
         var prompt = Confirmations.activateProfile(profile.name(), ProfileActivation.changes(resolved),
-                ProfileActivation.javaWarnings(profile), preview);
+                ProfileActivation.javaWarnings(profile),
+                ProfileActivation.leftoverEntries(resolved, snapshot.userPath(), context.root().toString()), preview);
         if (!ConfirmDialog.confirm(this, prompt)) {
             return;
         }
