@@ -12,7 +12,7 @@ public final class Screens {
             "Trusted certificates");
 
     /** The app's top-level tabs. The Java tab holds {@link #NAMES}; Activity covers every tab's jobs. */
-    public static final List<String> TOP_LEVEL = List.of("Java", "Maven", "Ant", "Gradle", "Activity");
+    public static final List<String> TOP_LEVEL = List.of("Java", "Maven", "Ant", "Gradle", "Profiles", "Activity");
 
     /** Screens inside each build tool tab. */
     public static final List<String> TOOL = List.of("Versions", "Installed", "Environment");

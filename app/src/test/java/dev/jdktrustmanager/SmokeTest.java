@@ -22,7 +22,7 @@ class SmokeTest {
 
     @Test
     void topLevelTabsAndToolScreens() {
-        assertEquals(List.of("Java", "Maven", "Ant", "Gradle", "Activity"), Screens.TOP_LEVEL);
+        assertEquals(List.of("Java", "Maven", "Ant", "Gradle", "Profiles", "Activity"), Screens.TOP_LEVEL);
         assertEquals(List.of("Versions", "Installed", "Environment"), Screens.TOOL);
     }
 }

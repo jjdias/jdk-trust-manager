@@ -7,10 +7,13 @@ import dev.jdktrustmanager.buildtools.ToolCatalog;
 import dev.jdktrustmanager.buildtools.ToolHttp;
 import dev.jdktrustmanager.buildtools.ToolInstaller;
 import dev.jdktrustmanager.buildtools.ToolVerifier;
+import dev.jdktrustmanager.catalog.CatalogBrowser;
+import dev.jdktrustmanager.catalog.DiscoClient;
 import dev.jdktrustmanager.install.WorkQueue;
 import dev.jdktrustmanager.model.Settings;
 import dev.jdktrustmanager.persist.AppFiles;
 import dev.jdktrustmanager.persist.JsonStores;
+import dev.jdktrustmanager.profiles.ProfileStore;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
@@ -18,25 +21,42 @@ import javafx.scene.Node;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 
-/** Top level: Java (its five screens), Maven, Ant, Gradle, then Activity, which logs every tab's jobs. */
+/** Top level: Java (its five screens), Maven, Ant, Gradle, Profiles, then Activity, which logs every tab's jobs. */
 public final class AppTabs extends TabPane {
 
-    public AppTabs(Node java, List<ToolTab> tools, Node activity) {
+    public AppTabs(Node java, List<ToolTab> tools, ProfilesPane profiles, Node activity) {
         setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
         getTabs().add(new Tab(Screens.TOP_LEVEL.get(0), java));
         for (ToolTab tab : tools) {
             getTabs().add(new Tab(tab.tool().displayName(), tab));
         }
+        Tab profilesTab = new Tab(Screens.TOP_LEVEL.get(Screens.TOP_LEVEL.size() - 2), profiles);
+        profilesTab.setOnSelectionChanged(event -> {
+            if (profilesTab.isSelected()) {
+                profiles.refresh();
+            }
+        });
+        getTabs().add(profilesTab);
         getTabs().add(new Tab(Screens.TOP_LEVEL.get(Screens.TOP_LEVEL.size() - 1), activity));
     }
 
-    /** The three tool tabs wired to the real network, state files, and work queue. */
-    public static List<ToolTab> toolTabs(Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings) {
+    /** Every tab after Java, wired to the real network, state files, and work queue, sharing one tool context. */
+    public static AppTabs create(Node java, Node activity, Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings,
+            CatalogBrowser browser, DiscoClient client) {
+        ToolContext context = context(root, stores, queue, settings);
+        return new AppTabs(java, toolTabs(context), new ProfilesPane(context, new ProfileStore(stores, AppFiles.profiles()), browser, client),
+                activity);
+    }
+
+    static ToolContext context(Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings) {
         ToolHttp http = new HttpToolHttp();
-        ToolContext context = new ToolContext(root, AppFiles.tools(), stores, queue,
+        return new ToolContext(root, AppFiles.tools(), stores, queue,
                 new ToolCatalog(http, stores, AppFiles.toolCatalog()),
                 new ToolInstaller(new ToolVerifier(http, AppFiles.keysDir()), AppFiles.zipCache()),
                 new ToolAdopter(), settings, AppFiles.installations());
+    }
+
+    static List<ToolTab> toolTabs(ToolContext context) {
         return BuildTools.ALL.stream().map(tool -> new ToolTab(tool, context)).toList();
     }
 }
