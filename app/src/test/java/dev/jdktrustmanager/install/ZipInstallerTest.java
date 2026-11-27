@@ -96,6 +96,43 @@ class ZipInstallerTest {
         assertTrue(Files.isRegularFile(cache.resolve(alteredSha + ".zip")));
     }
 
+    private static CatalogPackage temurin21(String javaVersion) {
+        return new CatalogPackage("temurin-21", "temurin", 21, javaVersion, "zip", "x64", false, true, true, "ga", "lts",
+                "unknown", "OpenJDK21U.zip", 1, false);
+    }
+
+    private Path fakeTemurin21(String releaseVersion) throws IOException {
+        Path home = directory.resolve("temurin-21");
+        Files.createDirectories(home.resolve("bin"));
+        Files.writeString(home.resolve("release"), "JAVA_VERSION=\"" + releaseVersion + "\"\n");
+        Files.write(home.resolve("bin").resolve("java.exe"), new byte[] {1});
+        return home;
+    }
+
+    @Test
+    void theSameJdkVersionIsNeverDownloadedAgain() throws Exception {
+        fakeTemurin21("21.0.13");
+        PackageDetail detail = new PackageDetail("https://example.invalid/never-fetched.zip", "a".repeat(64), "sha256");
+
+        ZipInstaller.AlreadyInstalledException error = assertThrows(ZipInstaller.AlreadyInstalledException.class,
+                () -> new ZipInstaller().install(temurin21("21.0.13+9"), detail, directory, directory.resolve("cache"), null,
+                        ZipInstaller.TrustReplay.noop()));
+
+        assertTrue(error.getMessage().contains("already installed"));
+        assertTrue(Files.isRegularFile(directory.resolve("temurin-21").resolve("bin").resolve("java.exe")));
+    }
+
+    @Test
+    void sameVersionComparesReleasesNotBuildNumbers() throws Exception {
+        Path home = fakeTemurin21("21.0.13");
+
+        assertTrue(ZipInstaller.sameVersionInstalled(home, "21.0.13+9"));
+        assertFalse(ZipInstaller.sameVersionInstalled(home, "21.0.14+7"));
+        assertFalse(ZipInstaller.sameVersionInstalled(directory.resolve("nothing-here"), "21.0.13+9"));
+        Files.writeString(home.resolve("release"), "JAVA_VERSION=\"1.8.0_432\"\n");
+        assertTrue(ZipInstaller.sameVersionInstalled(home, "8.0.432+6"));
+    }
+
     private static void rewriteRelease(Path jdkHome, Path zip, String version) throws Exception {
         Path release = jdkHome.resolve("release");
         String original = Files.readString(release);

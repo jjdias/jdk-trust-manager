@@ -115,7 +115,7 @@ final class ProfileForm {
 
         GridPane grid = new GridPane();
         grid.setHgap(Spacing.GAP);
-        grid.setVgap(Spacing.GAP);
+        grid.setVgap(Spacing.GAP + 4);
         grid.addRow(0, new Label("Name"), name);
         grid.addRow(1, new Label("JDK"), jdk);
         int row = 2;
@@ -139,9 +139,9 @@ final class ProfileForm {
         content.add(grid);
         content.add(warning);
         content.add(error);
-        VBox box = new VBox(Spacing.GAP, content.toArray(Node[]::new));
-        box.setPadding(new Insets(4, 0, 0, 0));
-        box.setPrefWidth(560);
+        VBox box = new VBox(Spacing.GAP + 4, content.toArray(Node[]::new));
+        box.setPadding(Spacing.PAGE);
+        box.setPrefWidth(620);
         dialog.getDialogPane().setContent(box);
 
         Button saveButton = (Button) dialog.getDialogPane().lookupButton(save);

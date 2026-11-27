@@ -36,7 +36,8 @@ public final class CatalogPane extends BorderPane {
     private final Label detail = new Label("Select a major version.");
     private final TextField filter = new TextField();
     private final java.util.List<VendorVersions> vendors = new ArrayList<>();
-    private CatalogBrowser.Card selected;
+    private volatile CatalogBrowser.Card selected;
+    private volatile boolean selectedIsInstalled;
 
     public CatalogPane(DiscoClient client, DiscoCatalog catalog, WorkQueue queue, Supplier<Settings> settings) {
         this.client = client;
@@ -85,7 +86,13 @@ public final class CatalogPane extends BorderPane {
             lookup.execute(() -> {
                 try {
                     Settings current = settings.get();
-                    selected = browser.latest(node.distribution(), node.major(), current, current.showJavafxBuilds(), false);
+                    CatalogBrowser.Card card = browser.latest(node.distribution(), node.major(), current, current.showJavafxBuilds(), false);
+                    boolean same = card.pkg() != null && dev.jdktrustmanager.install.ZipInstaller.sameVersionInstalled(
+                            dev.jdktrustmanager.install.Layout.destination(java.nio.file.Path.of(current.rootDirectory()),
+                                    dev.jdktrustmanager.catalog.Slug.of(card.pkg().distribution(), card.pkg().javafxBundled(), card.pkg().architecture()),
+                                    card.pkg().major()), card.pkg().javaVersion());
+                    selected = card;
+                    selectedIsInstalled = same;
                     javafx.application.Platform.runLater(() -> show(install));
                 } catch (Exception ex) {
                     javafx.application.Platform.runLater(() -> detail.setText(ex.getMessage()));
@@ -139,9 +146,10 @@ public final class CatalogPane extends BorderPane {
                 + "\n" + pkg.termOfSupport()
                 + "\n" + pkg.architecture()
                 + "\n" + pkg.size()
-                + "\n" + (selected.installed() ? "installed" : "not installed")
+                + "\n" + (selectedIsInstalled ? "this version is installed"
+                        : selected.installed() ? "an older patch is installed; Install updates it" : "not installed")
                 + (selected.stale() ? "\nstale cache" : ""));
-        install.setDisable(false);
+        install.setDisable(selectedIsInstalled);
     }
 
     private void queueInstall() {

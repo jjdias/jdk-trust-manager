@@ -42,6 +42,31 @@ public final class ZipInstaller {
         }
     }
 
+    /** Thrown before any download when the folder already holds this exact release. Nothing is downloaded or changed. */
+    public static final class AlreadyInstalledException extends IOException {
+        public AlreadyInstalledException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * True when {@code home} is a JDK whose release file names the same release as {@code javaVersion}. Build numbers are
+     * ignored ("21.0.13+9" equals "21.0.13") and "1.8.0_432" equals "8.0.432". A newer patch is not the same, so it still
+     * installs as an update.
+     */
+    public static boolean sameVersionInstalled(Path home, String javaVersion) {
+        if (javaVersion == null || !JdkScanner.isHome(home)) {
+            return false;
+        }
+        try {
+            String installed = readRelease(home.resolve("release")).get("JAVA_VERSION");
+            return installed != null && !dev.jdktrustmanager.model.Installations.newer(installed, javaVersion)
+                    && !dev.jdktrustmanager.model.Installations.newer(javaVersion, installed);
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
     /** Thrown when the user cancels a download. Nothing was installed and the partial zip is gone. */
     public static final class CancelledException extends IOException {
         public CancelledException() {
@@ -83,6 +108,10 @@ public final class ZipInstaller {
             InstallProgress progress) throws IOException {
         if (detail == null || detail.checksum() == null || detail.checksum().isBlank() || !"sha256".equals(detail.checksumType())) {
             throw new IOException("SHA-256 is required");
+        }
+        Path target = Layout.destination(root, Slug.of(pkg.distribution(), pkg.javafxBundled(), pkg.architecture()), pkg.major());
+        if (sameVersionInstalled(target, pkg.javaVersion())) {
+            throw new AlreadyInstalledException(pkg.distribution() + " " + pkg.javaVersion() + " is already installed in " + target);
         }
         Files.createDirectories(root);
         if (pkg.size() > 0 && Files.getFileStore(root).getUsableSpace() < pkg.size()) {

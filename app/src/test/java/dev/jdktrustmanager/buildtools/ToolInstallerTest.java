@@ -98,6 +98,23 @@ class ToolInstallerTest {
     }
 
     @Test
+    void anInstalledVersionIsRefusedBeforeAnyDownload() throws Exception {
+        zip("apache-maven-3.3.9", "bin/mvn.cmd");
+        java.util.concurrent.atomic.AtomicInteger downloads = new java.util.concurrent.atomic.AtomicInteger();
+        ToolInstaller counting = new ToolInstaller((url, target, progress) -> {
+            downloads.incrementAndGet();
+            Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }, new ToolVerifier(http, directory.resolve("keys")), directory.resolve("cache-a"));
+        counting.install(BuildTools.MAVEN, maven, root, Optional.empty(), null);
+        ToolInstaller fresh = new ToolInstaller((url, target, progress) -> downloads.incrementAndGet(),
+                new ToolVerifier(http, directory.resolve("keys")), directory.resolve("cache-b"));
+
+        assertThrows(IOException.class, () -> fresh.install(BuildTools.MAVEN, maven, root, Optional.empty(), null));
+
+        assertEquals(1, downloads.get());
+    }
+
+    @Test
     void aZipWithoutTheLauncherLeavesNothingBehind() throws Exception {
         zip("apache-maven-3.3.9", null);
 
