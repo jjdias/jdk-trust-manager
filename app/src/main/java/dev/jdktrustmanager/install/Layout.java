@@ -5,6 +5,11 @@ import java.nio.file.Path;
 
 public final class Layout {
 
+    /** Shared certificate folder next to the JDKs. */
+    public static final String TRUSTED_CERTS = "trusted-certs";
+    /** Maven, Ant, and Gradle versions live here, never JDKs. */
+    public static final String BUILD_TOOLS = "build-tools";
+
     private Layout() {
     }
 
@@ -21,8 +26,11 @@ public final class Layout {
         if (!candidateNormal.startsWith(rootNormal) || candidateNormal.equals(rootNormal)) {
             throw new IOException("Refusing path outside the JDK root: " + candidate);
         }
-        if (candidateNormal.getFileName() != null && "trusted-certs".equals(candidateNormal.getFileName().toString())) {
+        if (candidateNormal.getFileName() != null && TRUSTED_CERTS.equals(candidateNormal.getFileName().toString())) {
             throw new IOException("Refusing the shared certificate folder");
+        }
+        if (candidateNormal.startsWith(rootNormal.resolve(BUILD_TOOLS))) {
+            throw new IOException("Refusing the build tools folder");
         }
         if (bundledRuntime != null && candidateNormal.startsWith(bundledRuntime.toAbsolutePath().normalize())) {
             throw new IOException("Refusing the bundled runtime");

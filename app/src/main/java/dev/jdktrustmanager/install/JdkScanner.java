@@ -50,7 +50,8 @@ public final class JdkScanner {
         if (directory == null || depth > 2 || Files.notExists(directory) || !Files.isDirectory(directory)) {
             return;
         }
-        if (directory.getFileName() != null && "trusted-certs".equals(directory.getFileName().toString())) {
+        if (directory.getFileName() != null && (Layout.TRUSTED_CERTS.equals(directory.getFileName().toString())
+                || Layout.BUILD_TOOLS.equals(directory.getFileName().toString()))) {
             return;
         }
         if (isHome(directory)) {
