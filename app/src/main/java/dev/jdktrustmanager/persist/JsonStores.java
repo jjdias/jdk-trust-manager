@@ -9,6 +9,7 @@ import dev.jdktrustmanager.model.CatalogDocument;
 import dev.jdktrustmanager.model.Installation;
 import dev.jdktrustmanager.model.Settings;
 import dev.jdktrustmanager.model.SourcesDocument;
+import dev.jdktrustmanager.model.ToolInstallation;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -30,6 +31,18 @@ public final class JsonStores {
 
     public List<Installation> readInstallations(Path file) throws IOException {
         return mapper.readerForListOf(Installation.class).readValue(file.toFile());
+    }
+
+    public void writeTools(Path file, List<ToolInstallation> tools) throws IOException {
+        write(file, tools);
+    }
+
+    /** Missing file means nothing is installed yet. */
+    public List<ToolInstallation> readTools(Path file) throws IOException {
+        if (!Files.exists(file)) {
+            return List.of();
+        }
+        return mapper.readerForListOf(ToolInstallation.class).readValue(file.toFile());
     }
 
     public void writeSettings(Path file, Settings settings) throws IOException {

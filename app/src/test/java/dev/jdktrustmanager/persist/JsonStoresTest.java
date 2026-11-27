@@ -55,6 +55,23 @@ class JsonStoresTest {
     }
 
     @Test
+    void toolsRoundTripAndMissingFileIsEmpty() throws Exception {
+        var rows = List.of(
+                new dev.jdktrustmanager.model.ToolInstallation(dev.jdktrustmanager.model.Tool.MAVEN, "3.3.9",
+                        "C:\\Java\\build-tools\\maven-3.3.9", dev.jdktrustmanager.model.ToolSource.DOWNLOADED,
+                        dev.jdktrustmanager.model.Verification.SHA1, Instant.parse("2026-11-27T12:00:00Z"), true, false, ""),
+                new dev.jdktrustmanager.model.ToolInstallation(dev.jdktrustmanager.model.Tool.GRADLE, "8.10.2",
+                        "C:\\Java\\build-tools\\gradle-8.10.2", dev.jdktrustmanager.model.ToolSource.ADOPTED,
+                        dev.jdktrustmanager.model.Verification.NONE, null, false, true, "note"));
+        Path file = directory.resolve("tools.json");
+
+        stores.writeTools(file, rows);
+
+        assertEquals(rows, stores.readTools(file));
+        assertEquals(List.of(), stores.readTools(directory.resolve("missing.json")));
+    }
+
+    @Test
     void packageWithFreeUseFalseRoundTrips() throws Exception {
         CatalogPackage rejected = new CatalogPackage(
                 "pkg-1",
