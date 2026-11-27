@@ -74,7 +74,7 @@ public final class PathEditor {
     }
 
     public static boolean isManaged(String entry, String root) {
-        if (isToolEntry(entry, root)) {
+        if (isToolEntry(entry, root) || looksLikeTool(entry)) {
             return false;
         }
         String normalized = normalize(entry);
@@ -88,10 +88,28 @@ public final class PathEditor {
 
     public static boolean isOtherJava(String entry) {
         String lower = normalize(entry).toLowerCase(Locale.ROOT);
-        if (isToolVariableEntry(entry) || lower.contains("\\build-tools\\")) {
+        if (isToolVariableEntry(entry) || lower.contains("\\build-tools\\") || looksLikeTool(entry)) {
             return false;
         }
         return lower.contains("\\java\\") || lower.contains("javapath") || lower.contains("jdk");
+    }
+
+    /** A Maven, Ant, or Gradle folder by name, e.g. {@code C:\Java\apache-maven-3.6.3\bin}. JDK cleanup leaves these alone. */
+    static boolean looksLikeTool(String entry) {
+        String lower = normalize(entry).toLowerCase(Locale.ROOT);
+        return providesMaven(lower) || providesAnt(lower) || providesGradle(lower);
+    }
+
+    private static boolean providesMaven(String lower) {
+        return lower.contains("%m2_home%") || lower.contains("apache-maven") || lower.contains("\\maven");
+    }
+
+    private static boolean providesAnt(String lower) {
+        return lower.contains("apache-ant") || lower.contains("\\ant\\") || lower.endsWith("\\ant") || lower.contains("\\ant-");
+    }
+
+    private static boolean providesGradle(String lower) {
+        return lower.contains("gradle");
     }
 
     /** A managed tool entry ({@code %MAVEN_HOME%\bin} etc.) or anything under {@code <root>\build-tools\}. */
@@ -112,9 +130,9 @@ public final class PathEditor {
             }
             String lower = normalize(entry).toLowerCase(Locale.ROOT);
             boolean match = switch (tool.tool()) {
-                case MAVEN -> lower.contains("%m2_home%") || lower.contains("apache-maven") || lower.contains("\\maven");
-                case ANT -> lower.contains("apache-ant") || lower.contains("\\ant\\") || lower.endsWith("\\ant") || lower.contains("\\ant-");
-                case GRADLE -> lower.contains("gradle");
+                case MAVEN -> providesMaven(lower);
+                case ANT -> providesAnt(lower);
+                case GRADLE -> providesGradle(lower);
             };
             if (match) {
                 others.add(entry);

@@ -32,6 +32,16 @@ class EnvironmentPlanTest {
     }
 
     @Test
+    void jdkSwitchKeepsHandMadeToolFoldersUnderTheRoot() {
+        String current = "C:\\Java\\apache-maven-3.6.3\\bin;C:\\Java\\temurin-17\\bin;C:\\Java\\gradle-7.6\\bin;C:\\Java\\ant-1.9.16\\bin";
+
+        assertEquals("%JAVA_HOME%\\bin;C:\\Java\\apache-maven-3.6.3\\bin;C:\\Java\\gradle-7.6\\bin;C:\\Java\\ant-1.9.16\\bin",
+                EnvironmentPlan.forJava(current, ROOT, "C:\\Java\\temurin-21", false).path());
+        assertEquals("%JAVA_HOME%\\bin;C:\\Java\\apache-maven-3.6.3\\bin;C:\\Java\\gradle-7.6\\bin;C:\\Java\\ant-1.9.16\\bin",
+                EnvironmentPlan.forJava(current, ROOT, "C:\\Java\\temurin-21", true).path());
+    }
+
+    @Test
     void mavenSwitchGoesAfterJavaAndBeforeAnt() {
         EnvironmentPlan plan = EnvironmentPlan.forTool("%JAVA_HOME%\\bin;%ANT_HOME%\\bin;C:\\Windows", ROOT, BuildTools.MAVEN,
                 "C:\\Java\\build-tools\\maven-3.3.9", List.of());
