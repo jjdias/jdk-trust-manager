@@ -1,6 +1,6 @@
 # JDK Trust Manager
 
-Windows desktop app that installs JDK builds from the Foojay Disco API, keeps each one at `C:\Java\<vendor>-<major>\`, chooses which one is on `PATH`, and shows and updates the truststore of every installation.
+Windows desktop app that installs JDK builds from the Foojay Disco API, keeps each one at `C:\Java\<vendor>-<major>\`, chooses which one is on `PATH`, and shows and updates the truststore of every installation. It does the same for the build tools Java projects depend on (Maven, Ant, and Gradle), so a developer who moves between legacy and current projects can switch the whole toolchain quickly.
 
 Packages are portable Windows zips. The app downloads a zip, checks its SHA-256, unpacks it, and moves the JDK home into place. There is no MSI and no winget install.
 
@@ -261,6 +261,46 @@ If `keytool` returns a bad-password error, the UI asks for the store password an
 - Copy trusted certificates from one installation to others, using the same preview and fingerprint match.
 - Report button: write an HTML file with installations, active `JAVA_HOME`, and certificates that are expired or expiring within 30 days.
 
+## Build tools, profiles, and profile terminals
+
+Why: the projects this app serves are developed and tested across many legacy versions, and each version needs its own JDK plus its own Maven, Ant, or Gradle. The work moves between them from one day to the next (an issue in one release today, a feature on another tomorrow), so switching contexts has to be fast and hard to get wrong. This is delivered in three stages, in this order.
+
+### Stage 1: Build tools
+
+Maven, Ant, and Gradle each get a top-level tab next to a **Java** tab. The current screens (Catalog, Installed, Environment, Truststore, Trusted certificates, Activity) move inside the Java tab unchanged. Each build-tool tab offers what the Java tab offers for JDKs, minus the certificate screens:
+
+- Versions: list the published releases, newest first, with an Install button. Pre-releases (alphas, betas, release candidates, milestones) are hidden unless a setting shows them.
+- Installed: installed versions, the one currently on `PATH`, Set to path, Adopt, Pin, Remove.
+- Environment: the tool's variables and `PATH` entry, a preview before writing, and a per-shell PowerShell snippet.
+
+Sources, always over HTTPS:
+
+- Maven: version list from `https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/maven-metadata.xml`; binary zip `apache-maven-<v>-bin.zip` from the same Maven Central folder.
+- Ant: version list from the Apache archive `https://archive.apache.org/dist/ant/binaries/`; binary zip `apache-ant-<v>-bin.zip` from that folder.
+- Gradle: version list and checksums from `https://services.gradle.org/versions/all`; binary zip `gradle-<v>-bin.zip` from `https://services.gradle.org/distributions/`. Snapshots, nightlies, and versions marked `broken` are never offered.
+
+Each download is verified against the strongest checksum the project publishes: SHA-512 or SHA-256 for current releases. Older Maven (before 3.6) and Ant (before 1.8) releases publish only SHA-1 and MD5 next to a PGP signature. How those are verified is settled in the build-tools design.
+
+Layout: one folder per exact version under a shared `build-tools` folder, so several versions sit side by side: `C:\Java\build-tools\maven-3.3.9\`, `C:\Java\build-tools\ant-1.9.16\`, `C:\Java\build-tools\gradle-8.10.2\`. Installing a newer version never replaces an older one. The JDK scanner and the JDK `PATH` cleanup never touch `build-tools`.
+
+Environment, written to the registry the same way as `JAVA_HOME`, never with `setx`:
+
+- Maven: `MAVEN_HOME`, plus `M2_HOME` because Maven 2 and early Maven 3 read it, and `%MAVEN_HOME%\bin` on `PATH`.
+- Ant: `ANT_HOME`, required by `ant.bat`, and `%ANT_HOME%\bin` on `PATH`.
+- Gradle: `GRADLE_HOME` and `%GRADLE_HOME%\bin` on `PATH`.
+
+Each tool owns exactly one managed `PATH` entry, placed after the managed Java entry. Switching one tool never changes another tool's entry or `JAVA_HOME`.
+
+Each version shows the minimum Java it needs (for example Maven 3.9 needs Java 8, Maven 4 and Gradle 9 need Java 17). When the active JDK is older, the tab says so before Set to path.
+
+### Stage 2: Profiles
+
+A **Profiles** tab where the user saves named combinations of one JDK and any of Maven, Ant, and Gradle, for example "Release 4.2" = Temurin 8 + Maven 3.3.9 + Ant 1.9.16, and "Main" = Temurin 21 + Gradle 8.10.2. Applying a profile sets `JAVA_HOME`, the tool variables, and every managed `PATH` entry in one write, with one preview. A tool left out of a profile is removed from `PATH`. The per-tab switchers stay for one-off changes. Profiles are stored in `%LOCALAPPDATA%\JdkTrustManager\profiles.json`. A profile that points at a version no longer installed says which one is missing and offers to install it.
+
+### Stage 3: Profile terminals
+
+Open a terminal already set to a profile without changing the user environment, so two contexts can run side by side. How it looks and which terminals it supports is decided when this stage starts.
+
 ## Application structure
 
 ```text
@@ -280,7 +320,7 @@ app/
 
 Packages stay free of JavaFX except `ui`. Catalog, install, env, and trust are callable from tests without a window.
 
-Screens:
+Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, and later **Profiles**. The Java tab holds these screens:
 
 1. Catalog. Vendors, majors, patches, Install.
 2. Installed. Path, version, active badge, update, uninstall, make active.
@@ -312,6 +352,9 @@ Settings live in `%LOCALAPPDATA%\JdkTrustManager\settings.json`: root directory,
 8. `trusted-certs`, the TestNG host chain as the default URL, drop folder for private CAs, per-certificate checkboxes, sync to every managed JDK, replay after upgrade.
 9. Health, update-available, pin, report, per-shell and toolchain snippets.
 10. Package the app with its own runtime.
+11. Build tools: the Java tab, then Maven, Ant, and Gradle tabs with versions, install, installed list, and `PATH` switching.
+12. Profiles tab: save, apply, and repair named toolchain combinations.
+13. Profile terminals.
 
 ## Tests
 
@@ -329,4 +372,6 @@ Settings live in `%LOCALAPPDATA%\JdkTrustManager\settings.json`: root directory,
 - Early-access builds until a setting turns them on.
 - Editing private-key entries, generating key pairs, or creating CSRs.
 - Replacing a vendor `cacerts` with a downloaded bundle.
-- Named trust profiles. The first version syncs one global checked set.
+- Named trust profiles. The first version syncs one global checked set. (Toolchain profiles, above, choose versions only; they don't change which certificates are trusted.)
+- Maven Wrapper (`mvnw`) and Gradle Wrapper (`gradlew`) downloads. Projects that use a wrapper keep fetching their own version.
+- Build tools other than Maven, Ant, and Gradle (for example sbt or Bazel).
