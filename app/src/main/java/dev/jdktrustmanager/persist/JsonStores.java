@@ -69,6 +69,15 @@ public final class JsonStores {
         return mapper.readValue(file.toFile(), SourcesDocument.class);
     }
 
+    /** Writes any state document with the same atomic replace and date format as the typed methods. */
+    public void writeJson(Path file, Object value) throws IOException {
+        write(file, value);
+    }
+
+    public <T> T readJson(Path file, Class<T> type) throws IOException {
+        return mapper.readValue(file.toFile(), type);
+    }
+
     private void write(Path file, Object value) throws IOException {
         Path parent = file.getParent();
         if (parent != null) {
