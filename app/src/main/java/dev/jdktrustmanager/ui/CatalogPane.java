@@ -37,7 +37,10 @@ public final class CatalogPane extends BorderPane {
     private final TextField filter = new TextField();
     private final java.util.List<VendorVersions> vendors = new ArrayList<>();
     private volatile CatalogBrowser.Card selected;
-    private volatile boolean selectedIsInstalled;
+    private volatile InstallButton.State selectedState;
+    private volatile String selectedInstalledVersion;
+    private volatile java.nio.file.Path selectedHome;
+    private final Button install = new Button("Install");
 
     public CatalogPane(DiscoClient client, DiscoCatalog catalog, WorkQueue queue, Supplier<Settings> settings) {
         this.client = client;
@@ -51,7 +54,6 @@ public final class CatalogPane extends BorderPane {
         tree.setRoot(root);
         filter.setPromptText("Filter");
         filter.textProperty().addListener((obs, previous, text) -> showVendors(root, text));
-        Button install = new Button("Install");
         install.setDisable(true);
         install.setOnAction(event -> queueInstall());
         detail.setWrapText(true);
@@ -87,12 +89,18 @@ public final class CatalogPane extends BorderPane {
                 try {
                     Settings current = settings.get();
                     CatalogBrowser.Card card = browser.latest(node.distribution(), node.major(), current, current.showJavafxBuilds(), false);
-                    boolean same = card.pkg() != null && dev.jdktrustmanager.install.ZipInstaller.sameVersionInstalled(
-                            dev.jdktrustmanager.install.Layout.destination(java.nio.file.Path.of(current.rootDirectory()),
-                                    dev.jdktrustmanager.catalog.Slug.of(card.pkg().distribution(), card.pkg().javafxBundled(), card.pkg().architecture()),
-                                    card.pkg().major()), card.pkg().javaVersion());
+                    String installedVersion = null;
+                    java.nio.file.Path home = null;
+                    if (card.pkg() != null) {
+                        home = dev.jdktrustmanager.install.Layout.destination(java.nio.file.Path.of(current.rootDirectory()),
+                                dev.jdktrustmanager.catalog.Slug.of(card.pkg().distribution(), card.pkg().javafxBundled(), card.pkg().architecture()),
+                                card.pkg().major());
+                        installedVersion = dev.jdktrustmanager.install.ZipInstaller.installedVersion(home);
+                    }
                     selected = card;
-                    selectedIsInstalled = same;
+                    selectedHome = home;
+                    selectedInstalledVersion = installedVersion;
+                    selectedState = card.pkg() == null ? null : InstallButton.state(installedVersion, card.pkg().javaVersion());
                     javafx.application.Platform.runLater(() -> show(install));
                 } catch (Exception ex) {
                     javafx.application.Platform.runLater(() -> detail.setText(ex.getMessage()));
@@ -146,17 +154,26 @@ public final class CatalogPane extends BorderPane {
                 + "\n" + pkg.termOfSupport()
                 + "\n" + pkg.architecture()
                 + "\n" + pkg.size()
-                + "\n" + (selectedIsInstalled ? "this version is installed"
-                        : selected.installed() ? "an older patch is installed; Install updates it" : "not installed")
+                + "\n" + (selectedState.update() ? selectedInstalledVersion + " is installed; Update replaces it"
+                        : !selectedState.enabled() ? selectedInstalledVersion + " is installed" : "not installed")
                 + (selected.stale() ? "\nstale cache" : ""));
-        install.setDisable(selectedIsInstalled);
+        install.setText(selectedState.label());
+        install.setDisable(!selectedState.enabled());
     }
 
     private void queueInstall() {
         CatalogBrowser.Card card = selected;
-        if (card == null || card.pkg() == null) {
+        InstallButton.State state = selectedState;
+        if (card == null || card.pkg() == null || state == null || !state.enabled()) {
             return;
         }
-        queue.submit(new InstallJob(card, client, settings, queue, stores, null));
+        if (state.update() && !ConfirmDialog.confirm(this,
+                Confirmations.update(String.valueOf(selectedHome), selectedInstalledVersion, card.pkg().javaVersion()))) {
+            return;
+        }
+        install.setDisable(true);
+        queue.submit(new InstallJob(card, client, settings, queue, stores, () -> {
+            install.setText("Installed");
+        }));
     }
 }

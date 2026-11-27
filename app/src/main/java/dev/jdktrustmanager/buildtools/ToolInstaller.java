@@ -37,7 +37,7 @@ public final class ToolInstaller {
     public ToolInstallation install(BuildTool tool, ToolRelease release, Path root, Optional<Path> javaForRunCheck,
             ZipInstaller.InstallProgress progress) throws IOException {
         Path destination = ToolLayout.destination(root, tool, release.version());
-        if (Files.exists(destination)) {
+        if (Files.isDirectory(destination) && ToolLayout.launcher(tool, destination) != null) {
             throw new IOException(tool.displayName() + " " + release.version() + " is already installed");
         }
         ToolHttp.requireHttps(release.zipUrl());
@@ -66,6 +66,12 @@ public final class ToolInstaller {
             phase(progress, "Unpacking " + zip.getFileName());
             ZipInstaller.unzip(zip, unpacked);
             Path home = findHome(tool, unpacked);
+            if (Files.exists(destination, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                // Something without a launcher is in the way (an interrupted copy, a stray file). It isn't a working
+                // install, so it's removed now that the new version has downloaded, verified, and unpacked.
+                ZipInstaller.deleteRecursively(destination);
+                note(progress, "Removed an incomplete folder left at " + destination);
+            }
             phase(progress, "Moving to " + destination);
             Files.move(home, destination);
             if (javaForRunCheck.isPresent()) {

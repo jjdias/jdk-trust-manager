@@ -115,6 +115,37 @@ class ToolInstallerTest {
     }
 
     @Test
+    void anIncompleteFolderInTheWayIsDeletedAndTheInstallContinues() throws Exception {
+        Path leftover = root.resolve("build-tools").resolve("maven-3.3.9");
+        Files.createDirectories(leftover.resolve("lib"));
+        Files.writeString(leftover.resolve("lib").resolve("half-copied.jar"), "x");
+        zip("apache-maven-3.3.9", "bin/mvn.cmd");
+        List<String> log = new java.util.ArrayList<>();
+
+        ToolInstallation installed = installer().install(BuildTools.MAVEN, maven, root, Optional.empty(), new dev.jdktrustmanager.install.ZipInstaller.InstallProgress() {
+            public void log(String line) { log.add(line); }
+            public void bytes(long read, long total) { }
+            public void phase(String phase) { log.add(phase); }
+        });
+
+        assertEquals(leftover.toString(), installed.path());
+        assertTrue(Files.isRegularFile(leftover.resolve("bin").resolve("mvn.cmd")));
+        assertFalse(Files.exists(leftover.resolve("lib").resolve("half-copied.jar")));
+        assertTrue(log.stream().anyMatch(line -> line.contains("Removed an incomplete folder")));
+    }
+
+    @Test
+    void aFileWhereTheFolderShouldBeIsReplaced() throws Exception {
+        Files.createDirectories(root.resolve("build-tools"));
+        Files.writeString(root.resolve("build-tools").resolve("maven-3.3.9"), "not a folder");
+        zip("apache-maven-3.3.9", "bin/mvn.cmd");
+
+        installer().install(BuildTools.MAVEN, maven, root, Optional.empty(), null);
+
+        assertTrue(Files.isRegularFile(root.resolve("build-tools").resolve("maven-3.3.9").resolve("bin").resolve("mvn.cmd")));
+    }
+
+    @Test
     void aZipWithoutTheLauncherLeavesNothingBehind() throws Exception {
         zip("apache-maven-3.3.9", null);
 

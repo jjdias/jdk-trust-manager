@@ -96,6 +96,30 @@ class ZipInstallerTest {
         assertTrue(Files.isRegularFile(cache.resolve(alteredSha + ".zip")));
     }
 
+    @Test
+    void aConflictingFolderIsReplacedAndTheInstallContinues() throws Exception {
+        Path cached = dev.jdktrustmanager.persist.AppFiles.zipCache().resolve(TEMURIN_SHA + ".zip");
+        Assumptions.assumeTrue(Files.isRegularFile(cached),
+                "Skipped: install Temurin 21.0.13+9 once with the app so its zip is in the local cache");
+        Path cache = directory.resolve("cache");
+        Files.createDirectories(cache);
+        Files.copy(cached, cache.resolve(TEMURIN_SHA + ".zip"));
+        Path leftover = directory.resolve("temurin-21");
+        Files.createDirectories(leftover.resolve("lib"));
+        Files.writeString(leftover.resolve("lib").resolve("stale.jar"), "left from an interrupted install");
+        CatalogPackage pkg = new CatalogPackage("temurin-21", "temurin", 21, "21.0.13+9", "zip", "x64", false, true, true, "ga",
+                "lts", "unknown", "OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip", Files.size(cached), false);
+
+        new ZipInstaller().install(pkg, new PackageDetail("https://example.invalid/temurin.zip", TEMURIN_SHA, "sha256"),
+                directory, cache, null, ZipInstaller.TrustReplay.noop());
+
+        assertTrue(Files.isRegularFile(leftover.resolve("bin").resolve("java.exe")));
+        assertFalse(Files.exists(leftover.resolve("lib").resolve("stale.jar")));
+        try (var siblings = Files.list(directory)) {
+            assertTrue(siblings.noneMatch(path -> path.getFileName().toString().startsWith("temurin-21.bak-")));
+        }
+    }
+
     private static CatalogPackage temurin21(String javaVersion) {
         return new CatalogPackage("temurin-21", "temurin", 21, javaVersion, "zip", "x64", false, true, true, "ga", "lts",
                 "unknown", "OpenJDK21U.zip", 1, false);

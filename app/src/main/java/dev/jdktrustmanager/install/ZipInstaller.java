@@ -54,6 +54,18 @@ public final class ZipInstaller {
      * ignored ("21.0.13+9" equals "21.0.13") and "1.8.0_432" equals "8.0.432". A newer patch is not the same, so it still
      * installs as an update.
      */
+    /** The JAVA_VERSION in {@code home}'s release file, or null when {@code home} isn't a readable JDK. */
+    public static String installedVersion(Path home) {
+        if (home == null || !JdkScanner.isHome(home)) {
+            return null;
+        }
+        try {
+            return readRelease(home.resolve("release")).get("JAVA_VERSION");
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
     public static boolean sameVersionInstalled(Path home, String javaVersion) {
         if (javaVersion == null || !JdkScanner.isHome(home)) {
             return false;
