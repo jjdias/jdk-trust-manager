@@ -44,6 +44,46 @@ public final class Confirmations {
                 "Update");
     }
 
+    public static Prompt installTool(String name, String version, String folder, boolean signed) {
+        String check = signed
+                ? "The download is checked against Apache's signing keys before anything is installed."
+                : "The download is checked by SHA-256 before anything is installed.";
+        return new Prompt("Install " + name,
+                "Install " + name + " " + version + " into " + folder + "?\n\n" + check
+                        + " Other versions stay as they are, and nothing changes on PATH until you choose Set to path.",
+                "Install");
+    }
+
+    public static Prompt setToolPath(String name, String version, String javaWarningOrNull) {
+        String message = "Put " + name + " " + version + " on the user PATH and set its home variables?\n\n"
+                + "JAVA_HOME and the other build tools stay as they are. Open a new terminal afterwards to pick up the change.";
+        if (javaWarningOrNull != null && !javaWarningOrNull.isBlank()) {
+            message = javaWarningOrNull + "\n\n" + message;
+        }
+        return new Prompt("Set " + name + " on PATH", message, "Set to path");
+    }
+
+    public static Prompt removeTool(String name, String version, String folder) {
+        return new Prompt("Remove " + name,
+                "Delete " + name + " " + version + " (" + folder + ")?\n\nThis can't be undone. The downloaded zip is kept, so reinstalling is quick.",
+                "Remove");
+    }
+
+    public static Prompt removeToolFromPath(String name, java.util.List<String> variables) {
+        return new Prompt("Remove " + name + " from PATH",
+                "Take " + name + " off the user PATH and delete " + String.join(" and ", variables) + "?\n\n"
+                        + "Installed versions stay on disk. Open a new terminal afterwards to pick up the change.",
+                "Remove from PATH");
+    }
+
+    public static Prompt removeJavaFromPath() {
+        return new Prompt("Remove Java from PATH",
+                "Delete the user JAVA_HOME and take %JAVA_HOME%\\bin off the user PATH?\n\n"
+                        + "Installed JDKs stay on disk, and Maven, Ant, and Gradle stay on PATH. "
+                        + "A JAVA_HOME set for the whole machine, if any, takes over. Open a new terminal afterwards to pick up the change.",
+                "Remove from PATH");
+    }
+
     public static Prompt removeUrl(String url) {
         return new Prompt("Remove URL",
                 "Remove " + url + " from the trusted URLs?\n\nCertificates already imported from it stay in each JDK's cacerts. Sync doesn't remove them.",

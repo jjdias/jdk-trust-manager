@@ -10,6 +10,7 @@ import dev.jdktrustmanager.persist.AppFiles;
 import dev.jdktrustmanager.persist.JsonStores;
 import dev.jdktrustmanager.trust.TrustSchedule;
 import dev.jdktrustmanager.ui.ActivityPane;
+import dev.jdktrustmanager.ui.AppTabs;
 import dev.jdktrustmanager.ui.CatalogPane;
 import dev.jdktrustmanager.ui.EnvironmentPane;
 import dev.jdktrustmanager.ui.InstalledPane;
@@ -35,7 +36,7 @@ public class JdkTrustManagerApp extends Application {
         JsonStores stores = new JsonStores();
         Settings settings = Files.exists(AppFiles.settings())
                 ? stores.readSettings(AppFiles.settings())
-                : new Settings("C:\\Java", EnvironmentScope.USER, 24, true, false, false, false, false, false);
+                : new Settings("C:\\Java", EnvironmentScope.USER, 24, true, false, false, false, false, false, false);
         AtomicReference<Settings> current = new AtomicReference<>(settings);
         DiscoClient client = DiscoClient.live();
         WorkQueue queue = new WorkQueue(AppFiles.logs());
@@ -55,7 +56,8 @@ public class JdkTrustManagerApp extends Application {
         ActivityPane activity = new ActivityPane(AppFiles.logs(), queue);
         EnvironmentPane environment = new EnvironmentPane(settings.rootDirectory(), AppFiles.installations(), stores);
         SettingsPane preferences = new SettingsPane(settings, AppFiles.settings(), stores, current::set);
-        BorderPane shell = new BorderPane(new MainView(catalog, installed, environment, truststore, trusted, activity));
+        MainView java = new MainView(catalog, installed, environment, truststore, trusted);
+        BorderPane shell = new BorderPane(new AppTabs(java, AppTabs.toolTabs(managedRoot, stores, queue, current::get), activity));
         shell.setTop(preferences);
         shell.setBottom(new JobProgressPane(queue));
         stage.setTitle("JDK Trust Manager");

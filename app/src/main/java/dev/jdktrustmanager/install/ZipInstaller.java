@@ -161,7 +161,7 @@ public final class ZipInstaller {
         }
     }
 
-    static void unzip(Path zip, Path destination) throws IOException {
+    public static void unzip(Path zip, Path destination) throws IOException {
         Path root = destination.toAbsolutePath().normalize();
         try (ZipInputStream input = new ZipInputStream(Files.newInputStream(zip))) {
             ZipEntry entry;
@@ -185,7 +185,7 @@ public final class ZipInstaller {
         }
     }
 
-    void download(String uri, Path target, long expectedSize, InstallProgress progress) throws IOException {
+    public void download(String uri, Path target, long expectedSize, InstallProgress progress) throws IOException {
         HttpRequest request = HttpRequest.newBuilder(URI.create(uri))
                 .header("User-Agent", "JdkTrustManager")
                 .GET()
@@ -324,7 +324,7 @@ public final class ZipInstaller {
         }
     }
 
-    static void deleteRecursively(Path root) throws IOException {
+    public static void deleteRecursively(Path root) throws IOException {
         if (root == null || Files.notExists(root)) {
             return;
         }

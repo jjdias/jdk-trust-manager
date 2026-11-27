@@ -320,14 +320,13 @@ app/
 
 Packages stay free of JavaFX except `ui`. Catalog, install, env, and trust are callable from tests without a window.
 
-Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, and later **Profiles**. The Java tab holds these screens:
+Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, later **Profiles**, and **Activity** (the queue and log for every tab). The Java tab holds these screens:
 
 1. Catalog. Vendors, majors, patches, Install.
 2. Installed. Path, version, active badge, update, uninstall, make active.
 3. Environment. Scope, preview, apply, copy per-shell snippet, toolchain snippets.
 4. Truststore. Pick an installation or an extra keystore, table, detail, compare, import, delete, export.
 5. Trusted certificates. URL list, downloaded and local files, per-certificate checkboxes, sync status per JDK.
-6. Activity. Queue and log.
 
 Settings live in `%LOCALAPPDATA%\JdkTrustManager\settings.json`: root directory, environment scope, overlay choices, catalog max age, "hide majors below 8", "hide upstream end of life".
 

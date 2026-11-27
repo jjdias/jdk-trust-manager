@@ -6,9 +6,31 @@ import java.nio.charset.StandardCharsets;
 public final class UserEnvironment {
 
     public void apply(String javaHome, String path) throws IOException, InterruptedException {
-        reg("JAVA_HOME", "REG_SZ", javaHome);
-        reg("Path", "REG_EXPAND_SZ", path);
+        apply(new EnvironmentPlan(java.util.Map.of("JAVA_HOME", javaHome), java.util.Set.of(), path));
+    }
+
+    /** Writes every variable in the plan, deletes the ones it removes, writes Path, then tells Windows once. */
+    public void apply(EnvironmentPlan plan) throws IOException, InterruptedException {
+        for (var entry : plan.set().entrySet()) {
+            reg(entry.getKey(), "REG_SZ", entry.getValue());
+        }
+        for (String name : plan.delete()) {
+            delete(name);
+        }
+        reg("Path", "REG_EXPAND_SZ", plan.path());
         broadcast();
+    }
+
+    /** {@code reg delete}; a variable that isn't there is fine. */
+    private static void delete(String name) throws IOException, InterruptedException {
+        Process process = new ProcessBuilder("reg", "delete", "HKCU\\Environment", "/v", name, "/f")
+                .redirectErrorStream(true)
+                .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        if (process.waitFor() != 0 && RegistryEnvironment.query(RegistryEnvironment.USER, name) != null
+                && !RegistryEnvironment.query(RegistryEnvironment.USER, name).isBlank()) {
+            throw new IOException("Could not delete " + name + ": " + output.strip());
+        }
     }
 
     private static void reg(String name, String type, String value) throws IOException, InterruptedException {

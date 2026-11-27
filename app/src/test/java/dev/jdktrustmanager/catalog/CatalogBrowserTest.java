@@ -22,7 +22,7 @@ class CatalogBrowserTest {
     void temurin21CanBeInstalledAndStaleCacheStillRenders() throws Exception {
         String distributions = resource("distributions.json");
         String packages = resource("packages.json");
-        Settings settings = new Settings(directory.toString(), EnvironmentScope.USER, 24, true, false, false, false, false, false);
+        Settings settings = new Settings(directory.toString(), EnvironmentScope.USER, 24, true, false, false, false, false, false, false);
         DiscoClient client = new DiscoClient(path -> path.startsWith("/distributions") ? distributions : packages);
         CatalogBrowser browser = new CatalogBrowser(new DiscoCatalog(client, new JsonStores(), directory.resolve("catalog.json")));
         Distribution temurin = browser.vendors(settings, true).get(0);
@@ -47,7 +47,7 @@ class CatalogBrowserTest {
     @Test
     void showJavafxRevealsLibericaFromTheCache() throws Exception {
         String packages = resource("packages.json");
-        Settings shown = new Settings(directory.toString(), EnvironmentScope.USER, 24, true, false, false, false, true, false);
+        Settings shown = new Settings(directory.toString(), EnvironmentScope.USER, 24, true, false, false, false, true, false, false);
         DiscoClient client = new DiscoClient(path -> packages);
         Path cache = directory.resolve("catalog.json");
         Distribution liberica = new Distribution("Liberica", "liberica", true, true, false, java.util.List.of("21.0.13+11"));

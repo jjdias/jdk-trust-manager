@@ -44,6 +44,14 @@ Get-FileHash .\JdkTrustManager-*-windows-x64.zip -Algorithm SHA256
 - Syncs at startup when the last sync is more than 24 hours old, and whenever you press Sync. Automatic sync can be paused.
 - Saves an HTML report of managed JDKs, the active `JAVA_HOME`, and certificates in the active JDK's `cacerts` that are expired or expire within 30 days.
 
+**Manages Maven, Ant, and Gradle.**
+- Lists every published version: Maven from Maven Central, Ant from the Apache archive, Gradle from `services.gradle.org`. Pre-releases are hidden unless a setting shows them.
+- Installs any number of versions side by side, one folder per exact version under `C:\Java\build-tools\`. Installing a version never replaces another one.
+- Checks Maven and Ant downloads against the release's PGP signature and Apache's published signing keys. A bad signature, or one from an unknown key, is always rejected. Only when the keys or the signature can't be downloaded does it fall back to the strongest published checksum, and SHA-1 or MD5 installs are marked "weak checksum". Gradle downloads are checked by SHA-256.
+- Switches which version is on `PATH` through `MAVEN_HOME` and `M2_HOME`, `ANT_HOME`, or `GRADLE_HOME`. The tool entries sit right after `%JAVA_HOME%\bin`. Switching a tool never changes `JAVA_HOME`, and switching the JDK never drops a tool.
+- Warns when the active JDK is outside the Java range a version needs (for example Maven 4 and Gradle 9 need Java 17).
+- Adopts installs made elsewhere (by `MAVEN_HOME`, `PATH`, Chocolatey, Scoop, or `C:\Program Files\Apache`) by copying them into `build-tools`. Pin a version to protect it from removal.
+
 ## Layout
 
 ```text
@@ -52,9 +60,17 @@ C:\Java\
   temurin-21\           one JDK home per vendor and major
   zulu-21\
   liberica-fx-21\       JavaFX builds get an -fx suffix
+  build-tools\
+    maven-3.3.9\        one folder per exact Maven, Ant, or Gradle version
+    maven-3.9.9\
+    ant-1.10.15\
+    gradle-8.10.2\
 
 %LOCALAPPDATA%\JdkTrustManager\
   installations.json    installed JDKs and their state
+  tools.json            installed Maven, Ant, and Gradle versions
+  tool-catalog.json     cached version lists
+  keys\                 last downloaded Apache signing keys
   settings.json         root folder, filters, sync options
   catalog.json          cached Foojay catalog
   cache\<sha256>.zip    downloaded zips, kept for reinstalls
@@ -65,7 +81,7 @@ The root folder is configurable. Creating `C:\Java` or writing system-wide varia
 
 ## Screens
 
-Catalog, Installed, Environment, Truststore, Trusted certificates, and Activity. Settings are in the **Options** menu. Actions that delete a JDK, change `JAVA_HOME`, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
+Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, and **Activity**. The Java tab holds Catalog, Installed, Environment, Truststore, and Trusted certificates. Each build tool tab holds Versions, Installed, and Environment, and every Environment screen works the same way: pick a version, preview the new PATH, then Set or Remove from PATH. Activity logs the jobs from every tab. Settings are in the **Options** menu. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
 
 ## Build and run
 
@@ -103,7 +119,7 @@ One test installs a cached Temurin 21 zip. It is skipped until that zip is in `%
 
 ## Out of scope for now
 
-Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, and named trust profiles.
+Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, named trust profiles, and Maven Wrapper or Gradle Wrapper downloads (projects using `mvnw` or `gradlew` keep fetching their own version). Toolchain profiles and profile terminals are planned next; see [roadmap.md](roadmap.md).
 
 ## License
 

@@ -58,7 +58,7 @@ public final class JavaVariables {
             if (value.isEmpty()) {
                 continue;
             }
-            if (PathEditor.isManaged(value, root) || PathEditor.isOtherJava(value)) {
+            if (!PathEditor.isToolEntry(value, root) && (PathEditor.isManaged(value, root) || PathEditor.isOtherJava(value))) {
                 entries.add(value);
             }
         }

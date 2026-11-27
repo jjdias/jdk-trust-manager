@@ -8,6 +8,9 @@ updates:
       jackson:
         patterns:
           - "com.fasterxml.jackson*"
+      bouncycastle:
+        patterns:
+          - "org.bouncycastle:*"
     ignore:
       # The app stays on the JavaFX 21 line. Patch and minor updates still come through.
       - dependency-name: "org.openjfx:*"

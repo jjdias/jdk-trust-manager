@@ -31,6 +31,18 @@ public final class AppFiles {
         return stateDir().resolve("logs").resolve("work.log");
     }
 
+    public static Path tools() {
+        return stateDir().resolve("tools.json");
+    }
+
+    public static Path toolCatalog() {
+        return stateDir().resolve("tool-catalog.json");
+    }
+
+    public static Path keysDir() {
+        return stateDir().resolve("keys");
+    }
+
     public static Path zipCache() {
         return stateDir().resolve("cache");
     }

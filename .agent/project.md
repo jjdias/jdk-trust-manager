@@ -9,3 +9,8 @@ Settled choices. Do not research them again and do not propose alternatives unle
 - Truststore writes go through that JDK's own `keytool.exe`.
 - The app ships its own runtime. Do not uninstall or retarget the JDK that `JAVA_HOME` points at while it is the build JDK.
 - Named trust profiles, Linux, macOS, winget, and JRE packages are out of this version.
+- Maven, Ant, and Gradle live in `C:\Java\build-tools\<maven|ant|gradle>-<version>\`, one folder per exact version, never overwritten. The code is in `dev.jdktrustmanager.buildtools` (no JavaFX). Tool state is in `%LOCALAPPDATA%\JdkTrustManager\tools.json`.
+- Maven and Ant downloads are checked with the release's PGP signature against Apache's KEYS file (Bouncy Castle). A bad signature or unknown signer is always rejected. Only when the keys or signature can't be fetched does it fall back to the strongest checksum, flagged "weak checksum" for SHA-1/MD5. Gradle is checked by the SHA-256 in `services.gradle.org/versions/all`.
+- Tool variables: `MAVEN_HOME` + `M2_HOME`, `ANT_HOME`, `GRADLE_HOME`. PATH entries `%MAVEN_HOME%\bin`, `%ANT_HOME%\bin`, `%GRADLE_HOME%\bin` sit right after `%JAVA_HOME%\bin`. A JDK switch never removes them; a tool switch never touches `JAVA_HOME`. Write environment changes through `EnvironmentPlan` + `UserEnvironment.apply(plan)`.
+- Next stages: a Profiles tab (named JDK + tool combinations applied in one write), then profile terminals. See roadmap.md.
+- All verification is automated tests. Agents don't launch the app or run manual/live checks; the user does UI testing.

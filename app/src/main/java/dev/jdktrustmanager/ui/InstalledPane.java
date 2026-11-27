@@ -191,12 +191,8 @@ public final class InstalledPane extends BorderPane {
             return;
         }
         submit(WorkQueue.Kind.ADOPT, progress -> {
-            String current = RegistryEnvironment.query(RegistryEnvironment.USER, "Path");
-            if (current.isBlank()) {
-                throw new IOException("User Path could not be read");
-            }
-            String next = PathEditor.edit(current, root.toString(), false);
-            new UserEnvironment().apply(path, next);
+            dev.jdktrustmanager.env.UserPathWriter.live()
+                    .write(current -> dev.jdktrustmanager.env.EnvironmentPlan.forJava(current, root.toString(), path, false));
             if (Files.exists(installationsFile)) {
                 stores.writeInstallations(installationsFile, Installations.markActive(known(), path));
             }

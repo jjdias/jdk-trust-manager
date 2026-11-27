@@ -12,5 +12,6 @@ public record Settings(
         boolean showEarlyAccess,
         boolean showGraalvm,
         boolean showJavafxBuilds,
-        boolean pauseAutomaticTrustSync) {
+        boolean pauseAutomaticTrustSync,
+        boolean showBuildToolPreReleases) {
 }

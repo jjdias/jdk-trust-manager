@@ -78,4 +78,21 @@ class InventoryTest {
         List<JdkScanner.Discovered> found = new JdkScanner().scan(Path.of("C:\\Java"), List.of(), List.of(), List.of());
         assertTrue(found.stream().anyMatch(row -> row.path().equals(temurin) && !row.managed()));
     }
+
+    @Test
+    void buildToolsFolderIsNeverAJdkOrAJdkTarget() throws Exception {
+        Path root = directory.resolve("Java");
+        Path inside = root.resolve("build-tools").resolve("maven-3.3.9");
+        Files.createDirectories(inside.resolve("bin"));
+        Files.writeString(inside.resolve("release"), "JAVA_VERSION=\"21\"\n");
+        Files.write(inside.resolve("bin").resolve("java.exe"), new byte[] {1});
+
+        List<JdkScanner.Discovered> found = new JdkScanner().scan(root, List.of(), List.of(), List.of());
+
+        assertTrue(found.isEmpty());
+        org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class,
+                () -> Layout.checkInsideRoot(root, root.resolve("build-tools"), null));
+        org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class,
+                () -> Layout.checkInsideRoot(root, inside, null));
+    }
 }
