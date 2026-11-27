@@ -84,6 +84,47 @@ public final class Confirmations {
                 "Remove from PATH");
     }
 
+    public static Prompt activateProfile(String name, java.util.List<String> changes, java.util.List<String> javaWarnings, String newPath) {
+        StringBuilder message = new StringBuilder();
+        for (String warning : javaWarnings) {
+            message.append(warning).append('\n');
+        }
+        if (!javaWarnings.isEmpty()) {
+            message.append('\n');
+        }
+        message.append("Switch to ").append(name).append("?\n\n");
+        for (String change : changes) {
+            message.append("  ").append(change).append('\n');
+        }
+        message.append("\nNew user PATH:\n");
+        for (String entry : newPath.split(";")) {
+            message.append("  ").append(entry).append('\n');
+        }
+        message.append("\nOpen a new terminal afterwards to pick up the change.");
+        return new Prompt("Activate " + name, message.toString(), "Activate");
+    }
+
+    public static Prompt installMissing(String name, java.util.List<String> missing, java.util.List<String> cannotInstall) {
+        StringBuilder message = new StringBuilder(name).append(" uses versions that aren't installed:\n\n");
+        for (String label : missing) {
+            message.append("  ").append(label).append('\n');
+        }
+        if (!cannotInstall.isEmpty()) {
+            message.append('\n').append(String.join(", ", cannotInstall))
+                    .append(" can't be installed automatically. Install or adopt ")
+                    .append(cannotInstall.size() == 1 ? "it" : "them").append(" first, then activate the profile.");
+            return new Prompt("Missing versions", message.toString(), "Install the others");
+        }
+        message.append("\nInstall them, then activate ").append(name).append("? Nothing changes on PATH if an install fails.");
+        return new Prompt("Missing versions", message.toString(), "Install and activate");
+    }
+
+    public static Prompt deleteProfile(String name) {
+        return new Prompt("Delete profile",
+                "Delete the profile " + name + "?\n\nThe environment isn't changed, and no JDK or tool is removed.",
+                "Delete");
+    }
+
     public static Prompt removeUrl(String url) {
         return new Prompt("Remove URL",
                 "Remove " + url + " from the trusted URLs?\n\nCertificates already imported from it stay in each JDK's cacerts. Sync doesn't remove them.",

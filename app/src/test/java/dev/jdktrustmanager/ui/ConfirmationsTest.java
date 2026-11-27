@@ -83,6 +83,31 @@ class ConfirmationsTest {
     }
 
     @Test
+    void activateProfileListsChangesWarningsAndThePath() {
+        Confirmations.Prompt prompt = Confirmations.activateProfile("Release 4.2",
+                java.util.List.of("temurin 8 → JAVA_HOME", "Gradle → off PATH"),
+                java.util.List.of("Maven 4.0.0 needs Java 17 or newer; this profile's JDK is Java 8."),
+                "%JAVA_HOME%\\bin;C:\\Windows");
+        assertEquals("Activate Release 4.2", prompt.title());
+        assertEquals("Activate", prompt.action());
+        assertTrue(prompt.message().contains("temurin 8 → JAVA_HOME"));
+        assertTrue(prompt.message().contains("Gradle → off PATH"));
+        assertTrue(prompt.message().contains("needs Java 17"));
+        assertTrue(prompt.message().contains("C:\\Windows"));
+    }
+
+    @Test
+    void installMissingSaysWhatCannotBeInstalled() {
+        Confirmations.Prompt prompt = Confirmations.installMissing("Release 4.2", java.util.List.of("Maven 3.3.9"), java.util.List.of("acme-builds 8"));
+        assertEquals("Install the others", prompt.action());
+        assertTrue(prompt.message().contains("Maven 3.3.9"));
+        assertTrue(prompt.message().contains("acme-builds 8") && prompt.message().contains("can't be installed automatically"));
+        assertEquals("Install and activate",
+                Confirmations.installMissing("Release 4.2", java.util.List.of("Maven 3.3.9"), java.util.List.of()).action());
+        assertTrue(Confirmations.deleteProfile("Main").message().contains("isn't changed"));
+    }
+
+    @Test
     void syncAllMentionsBackups() {
         assertTrue(Confirmations.syncAll().message().contains("backup"));
     }
