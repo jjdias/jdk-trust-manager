@@ -32,11 +32,10 @@ record ToolContext(Path root, Path toolsFile, JsonStores stores, WorkQueue queue
      * (the user's MAVEN_HOME/ANT_HOME/GRADLE_HOME), which is what a new terminal will see.
      */
     synchronized List<ToolInstallation> tools(BuildTool tool) throws IOException, InterruptedException {
-        List<ToolInstallation> all = new ArrayList<>(stores.readTools(toolsFile));
-        all.removeIf(row -> row.tool() == tool.tool() && !Files.isDirectory(Path.of(row.path())));
         String home = RegistryEnvironment.query(RegistryEnvironment.USER, tool.homeVariables().get(0));
         String onPath = home == null || home.isBlank() ? null : home;
-        all = ToolInstallations.markActive(all, tool.tool(), onPath);
+        List<ToolInstallation> all = dev.jdktrustmanager.buildtools.ToolInventory.reconcile(
+                stores.readTools(toolsFile), tool, dev.jdktrustmanager.buildtools.ToolLayout.installed(root, tool), onPath);
         stores.writeTools(toolsFile, all);
         return ToolInstallations.of(all, tool.tool());
     }

@@ -61,6 +61,7 @@ public final class Checksums {
             case MD5 -> "MD5";
             case SIGNATURE -> "signature";
             case NONE -> "none";
+            case UNRECORDED -> "unrecorded";
         };
     }
 

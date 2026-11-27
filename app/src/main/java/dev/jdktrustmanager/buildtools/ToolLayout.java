@@ -44,8 +44,13 @@ public final class ToolLayout {
                 }
             }
         }
-        homes.sort((left, right) -> ToolVersions.NEWEST_FIRST.compare(version(tool, left), version(tool, right)));
+        homes.sort((left, right) -> ToolVersions.NEWEST_FIRST.compare(versionOf(tool, left), versionOf(tool, right)));
         return homes;
+    }
+
+    /** The version in a version folder's name, e.g. {@code 3.9.9} for {@code maven-3.9.9}. */
+    public static String versionOf(BuildTool tool, Path home) {
+        return home.getFileName().toString().substring(tool.folderPrefix().length() + 1);
     }
 
     /** The first launcher from {@link BuildTool#launchers()} that exists in {@code home}, or null. */
@@ -59,7 +64,4 @@ public final class ToolLayout {
         return null;
     }
 
-    private static String version(BuildTool tool, Path home) {
-        return home.getFileName().toString().substring(tool.folderPrefix().length() + 1);
-    }
 }

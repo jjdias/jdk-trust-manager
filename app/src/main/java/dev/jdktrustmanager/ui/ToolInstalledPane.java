@@ -92,6 +92,7 @@ final class ToolInstalledPane extends BorderPane {
             case SHA256 -> "SHA-256";
             case SHA1, MD5 -> "weak checksum";
             case NONE -> "adopted";
+            case UNRECORDED -> "unrecorded";
         };
     }
 
