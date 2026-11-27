@@ -96,6 +96,17 @@ public final class ZipInstaller {
         }
     }
 
+    /** Finds programs running from a JDK folder; tests replace it. */
+    private final java.util.function.Function<Path, List<JdkInUse.Holder>> inUse;
+
+    public ZipInstaller() {
+        this(JdkInUse::holders);
+    }
+
+    ZipInstaller(java.util.function.Function<Path, List<JdkInUse.Holder>> inUse) {
+        this.inUse = inUse;
+    }
+
     private final HttpClient http = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
@@ -125,6 +136,12 @@ public final class ZipInstaller {
         if (sameVersionInstalled(target, pkg.javaVersion())) {
             throw new AlreadyInstalledException(pkg.distribution() + " " + pkg.javaVersion() + " is already installed in " + target);
         }
+        if (Files.exists(target)) {
+            List<JdkInUse.Holder> holders = inUse.apply(target);
+            if (!holders.isEmpty()) {
+                throw new JdkInUse.InUseException(JdkInUse.message(target, holders));
+            }
+        }
         Files.createDirectories(root);
         if (pkg.size() > 0 && Files.getFileStore(root).getUsableSpace() < pkg.size()) {
             throw new IOException("Not enough free space for " + pkg.filename());
@@ -151,8 +168,7 @@ public final class ZipInstaller {
         Layout.checkInsideRoot(root, destination, bundledRuntime);
         Path backup = null;
         if (Files.exists(destination)) {
-            backup = destination.resolveSibling(destination.getFileName() + ".bak-" + Instant.now().toEpochMilli());
-            Files.move(destination, backup);
+            backup = moveAside(destination);
         }
         Path unpacked = Files.createTempDirectory(root, ".unpack-");
         try {
@@ -298,6 +314,23 @@ public final class ZipInstaller {
             throw new IOException("Expected one JDK home, found " + homes.size());
         }
         return homes.get(0);
+    }
+
+    /**
+     * Moves the installed folder out of the way before the new one goes in, so it can be put back if the install fails.
+     * When a program still has a file open in it (an IDE, a terminal running java, a Gradle or Maven daemon), Windows
+     * refuses the rename; after a few retries this says so plainly instead of the bare "a -> b" access error.
+     */
+    static Path moveAside(Path destination) throws IOException {
+        Path backup = destination.resolveSibling(destination.getFileName() + ".bak-" + Instant.now().toEpochMilli());
+        try {
+            moveWithRetry(destination, backup);
+            return backup;
+        } catch (java.nio.file.FileSystemException ex) {
+            throw new JdkInUse.InUseException(destination + " is in use, so it can't be replaced: a program has a file in it open. "
+                    + "Close programs running from this JDK or using its files (IDEs, terminals running java, Gradle or Maven daemons) "
+                    + "and try again. Nothing was changed.");
+        }
     }
 
     private static void moveWithRetry(Path home, Path destination) throws IOException {
