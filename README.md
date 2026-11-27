@@ -52,6 +52,13 @@ Get-FileHash .\JdkTrustManager-*-windows-x64.zip -Algorithm SHA256
 - Warns when the active JDK is outside the Java range a version needs (for example Maven 4 and Gradle 9 need Java 17).
 - Adopts installs made elsewhere (by `MAVEN_HOME`, `PATH`, Chocolatey, Scoop, or `C:\Program Files\Apache`) by copying them into `build-tools`. Pin a version to protect it from removal.
 
+**Switches whole toolchains with profiles.**
+- A profile is a name, one JDK, and optionally one Maven, Ant, and Gradle version, for example "Release 4.2" = Temurin 8 + Maven 3.3.9 + Ant 1.9.16.
+- Create one from scratch, or with **Save current setup** from whatever is on `PATH` now. Edit or delete profiles at any time; deleting one never changes the environment.
+- **Activate** shows every change and the new `PATH`, then writes `JAVA_HOME`, the tool variables, and every managed `PATH` entry in one go. Tools the profile leaves out come off `PATH`.
+- A profile that uses a version that isn't installed lists it and offers to install it first. Nothing changes on `PATH` if an install fails.
+- The tab shows which profile matches your current setup. A one-off switch on another tab means none does.
+
 ## Layout
 
 ```text
@@ -70,6 +77,7 @@ C:\Java\
   installations.json    installed JDKs and their state
   tools.json            installed Maven, Ant, and Gradle versions
   tool-catalog.json     cached version lists
+  profiles.json         saved toolchain profiles
   keys\                 last downloaded Apache signing keys
   settings.json         root folder, filters, sync options
   catalog.json          cached Foojay catalog
@@ -81,7 +89,7 @@ The root folder is configurable. Creating `C:\Java` or writing system-wide varia
 
 ## Screens
 
-Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, and **Activity**. The Java tab holds Catalog, Installed, Environment, Truststore, and Trusted certificates. Each build tool tab holds Versions, Installed, and Environment, and every Environment screen works the same way: pick a version, preview the new PATH, then Set or Remove from PATH. Activity logs the jobs from every tab. Settings are in the **Options** menu. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
+Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, **Profiles**, and **Activity**. The Java tab holds Catalog, Installed, Environment, Truststore, and Trusted certificates. Each build tool tab holds Versions, Installed, and Environment, and every Environment screen works the same way: pick a version, preview the new PATH, then Set or Remove from PATH. Activity logs the jobs from every tab. Settings are in the **Options** menu. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
 
 ## Build and run
 
@@ -119,7 +127,7 @@ One test installs a cached Temurin 21 zip. It is skipped until that zip is in `%
 
 ## Out of scope for now
 
-Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, named trust profiles, and Maven Wrapper or Gradle Wrapper downloads (projects using `mvnw` or `gradlew` keep fetching their own version). Toolchain profiles and profile terminals are planned next; see [roadmap.md](roadmap.md).
+Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, per-profile trusted certificates, and Maven Wrapper or Gradle Wrapper downloads (projects using `mvnw` or `gradlew` keep fetching their own version). A profile switcher in the top bar and profile terminals are planned next; see [roadmap.md](roadmap.md).
 
 ## License
 
