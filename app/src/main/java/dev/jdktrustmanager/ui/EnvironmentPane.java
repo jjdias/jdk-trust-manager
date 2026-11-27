@@ -1,12 +1,13 @@
 package dev.jdktrustmanager.ui;
 
+import dev.jdktrustmanager.env.EnvironmentPlan;
 import dev.jdktrustmanager.env.JavaOnPath;
 import dev.jdktrustmanager.env.JavaVariables;
 import dev.jdktrustmanager.env.JdkChoices;
 import dev.jdktrustmanager.env.PathEditor;
 import dev.jdktrustmanager.env.RegistryEnvironment;
 import dev.jdktrustmanager.env.ShellSnippets;
-import dev.jdktrustmanager.env.UserEnvironment;
+import dev.jdktrustmanager.env.UserPathWriter;
 import dev.jdktrustmanager.install.JdkScanner;
 import dev.jdktrustmanager.model.Installation;
 import dev.jdktrustmanager.model.Installations;
@@ -16,7 +17,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -24,11 +30,14 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.TitledPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+/**
+ * Java's variables and PATH entry, laid out like the Maven, Ant, and Gradle Environment screens: current values,
+ * a JDK to choose, the other-entries checkbox, a PATH preview, Set and Remove from PATH, and snippets.
+ */
 public final class EnvironmentPane extends VBox {
 
     private final String root;
@@ -36,12 +45,19 @@ public final class EnvironmentPane extends VBox {
     private final JsonStores stores;
     private final TableView<JavaVariables.Row> variables = new TableView<>();
     private final ComboBox<String> jdk = new ComboBox<>();
+    private final CheckBox removeOthers = new CheckBox();
     private final TextArea preview = new TextArea();
     private final TextArea snippet = new TextArea();
-    private final CheckBox removeOthers = new CheckBox("Remove other Java PATH entries");
-    private final Button apply = new Button("Set JAVA_HOME (user scope)");
     private final Label status = new Label();
-    private String rawUserPath = "";
+    private final Button set = new Button("Set");
+    private final Button removeFromPath = new Button("Remove from PATH");
+    private String userPath = "";
+    private List<String> others = List.of();
+    private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "jkm-env");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public EnvironmentPane(String root, Path installationsFile, JsonStores stores) {
         this.root = root;
@@ -49,105 +65,49 @@ public final class EnvironmentPane extends VBox {
         this.stores = stores;
         setSpacing(Spacing.GAP);
         setPadding(Spacing.PAGE);
-        jdk.setPromptText("No JDK found");
-        jdk.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(jdk, Priority.ALWAYS);
+        status.setWrapText(true);
         variables.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         variables.setPlaceholder(new Label("No Java variables are set."));
         variables.getColumns().add(column("Variable", 160, JavaVariables.Row::name));
         variables.getColumns().add(column("Scope", 90, JavaVariables.Row::scope));
         variables.getColumns().add(column("Value", 480, JavaVariables.Row::value));
-        VBox.setVgrow(variables, Priority.ALWAYS);
-        Button refresh = new Button("Refresh");
-        refresh.setOnAction(event -> reload());
-        getChildren().addAll(javaVariablesHeader(refresh), variables, advanced());
-        reload();
-    }
-
-    private HBox javaVariablesHeader(Button refresh) {
-        HBox header = new HBox(Spacing.GAP, new Label("Java variables"), refresh, status);
-        header.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        return header;
-    }
-
-    private TitledPane advanced() {
+        variables.setPrefHeight(170);
+        jdk.setPromptText("No JDK found");
+        jdk.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(jdk, Priority.ALWAYS);
+        jdk.valueProperty().addListener((obs, old, home) -> updatePreview());
         preview.setEditable(false);
-        preview.setPrefRowCount(4);
+        preview.setPrefRowCount(5);
         snippet.setEditable(false);
-        snippet.setPrefRowCount(5);
-        apply.setDisable(true);
-        removeOthers.setOnAction(event -> preview.setText(PathEditor.edit(rawUserPath, root, removeOthers.isSelected())));
-        apply.setOnAction(event -> applyUserScope());
+        snippet.setPrefRowCount(4);
+        VBox.setVgrow(snippet, Priority.ALWAYS);
+        removeOthers.setOnAction(event -> updatePreview());
+        Button refresh = new Button("Refresh");
+        refresh.setOnAction(event -> refresh());
+        set.setOnAction(event -> setSelected());
+        removeFromPath.setOnAction(event -> removeFromPath());
+        set.setDisable(true);
+        removeFromPath.setDisable(true);
         Button powershell = new Button("PowerShell");
-        powershell.setOnAction(event -> withSelected(target -> snippet.setText(ShellSnippets.powershell(target.home(), target.major()))));
+        powershell.setOnAction(event -> snippet(target -> ShellSnippets.powershell(target.home(), target.major())));
         Button maven = new Button("Maven toolchain");
-        maven.setOnAction(event -> withSelected(target -> snippet.setText(ShellSnippets.mavenToolchain(target.home(), target.major()))));
+        maven.setOnAction(event -> snippet(target -> ShellSnippets.mavenToolchain(target.home(), target.major())));
         Button gradle = new Button("Gradle note");
-        gradle.setOnAction(event -> withSelected(target -> snippet.setText(ShellSnippets.gradleNote(target.home(), target.major()))));
-        VBox contents = new VBox(Spacing.GAP,
-                new HBox(Spacing.GAP, new Label("JDK"), jdk),
-                new Label("Already-open terminals keep the old environment."),
-                preview,
-                removeOthers,
-                apply,
-                new HBox(Spacing.GAP, powershell, maven, gradle),
-                snippet);
-        TitledPane pane = new TitledPane("Advanced commands", contents);
-        pane.setExpanded(false);
-        return pane;
+        gradle.setOnAction(event -> snippet(target -> ShellSnippets.gradleNote(target.home(), target.major())));
+        HBox header = new HBox(Spacing.GAP, new Label("Java variables"), refresh);
+        header.setAlignment(Pos.CENTER_LEFT);
+        HBox chooser = new HBox(Spacing.GAP, new Label("JDK"), jdk);
+        chooser.setAlignment(Pos.CENTER_LEFT);
+        HBox actions = new HBox(Spacing.GAP, set, removeFromPath, status);
+        actions.setAlignment(Pos.CENTER_LEFT);
+        HBox snippets = new HBox(Spacing.GAP, new Label("Snippets for this JDK"), powershell, maven, gradle);
+        snippets.setAlignment(Pos.CENTER_LEFT);
+        getChildren().addAll(header, variables, chooser, removeOthers, new Label("New user PATH"), preview, actions, snippets, snippet);
+        refresh();
     }
 
-    private void withSelected(java.util.function.Consumer<JavaOnPath.Jdk> action) {
-        String selected = jdk.getValue();
-        if (selected == null || selected.isBlank()) {
-            status.setText("Select a JDK first.");
-            return;
-        }
-        try {
-            action.accept(JavaOnPath.jdk(Path.of(selected).resolve("bin").resolve("java.exe")));
-        } catch (Exception ex) {
-            status.setText(ex.getMessage());
-        }
-    }
-
-    private void applyUserScope() {
-        String next = preview.getText();
-        String selected = jdk.getValue();
-        if (next.isBlank()) {
-            status.setText("User Path could not be read");
-            return;
-        }
-        if (selected == null || selected.isBlank()) {
-            status.setText("Select a JDK first.");
-            return;
-        }
-        if (!ConfirmDialog.confirm(this, Confirmations.setJavaHome(selected, removeOthers.isSelected()))) {
-            return;
-        }
-        boolean removeOtherJava = removeOthers.isSelected();
-        Thread worker = new Thread(() -> {
-            try {
-                dev.jdktrustmanager.env.UserPathWriter.live()
-                        .write(current -> dev.jdktrustmanager.env.EnvironmentPlan.forJava(current, root, selected, removeOtherJava));
-                if (Files.exists(installationsFile)) {
-                    stores.writeInstallations(installationsFile,
-                            Installations.markActive(stores.readInstallations(installationsFile), selected));
-                }
-                javafx.application.Platform.runLater(() -> snippet.setText("JAVA_HOME set to " + selected));
-                reload();
-            } catch (Exception ex) {
-                javafx.application.Platform.runLater(() -> {
-                    status.setText(ex.getMessage());
-                    snippet.setText(ex.getMessage());
-                });
-            }
-        }, "jkm-env");
-        worker.setDaemon(true);
-        worker.start();
-    }
-
-    private void reload() {
-        Thread worker = new Thread(() -> {
+    private void refresh() {
+        worker.execute(() -> {
             try {
                 Map<String, String> user = RegistryEnvironment.queryAll(RegistryEnvironment.USER);
                 Map<String, String> machine = RegistryEnvironment.queryAll(RegistryEnvironment.MACHINE);
@@ -159,26 +119,117 @@ public final class EnvironmentPane extends VBox {
                 for (JdkScanner.Discovered found : new JdkScanner().scan(Path.of(root), List.of(), known, List.of())) {
                     homes.add(found.path().toString());
                 }
-                List<String> choices = JdkChoices.candidates(JavaVariables.find(user, "JAVA_HOME"), homes);
-                javafx.application.Platform.runLater(() -> {
+                String javaHome = JavaVariables.find(user, "JAVA_HOME");
+                List<String> choices = JdkChoices.candidates(javaHome, homes);
+                List<String> found = PathEditor.otherJavaEntries(path, root);
+                boolean onPath = List.of(path.split(";")).stream().anyMatch(entry -> entry.trim().equalsIgnoreCase(PathEditor.MANAGED));
+                Platform.runLater(() -> {
+                    userPath = path;
+                    others = found;
+                    variables.getItems().setAll(rows);
+                    removeOthers.setText(found.isEmpty()
+                            ? "No other Java entries on the user PATH"
+                            : "Remove other Java entries: " + String.join(", ", found));
+                    removeOthers.setDisable(found.isEmpty());
+                    if (found.isEmpty()) {
+                        removeOthers.setSelected(false);
+                    }
                     String previous = jdk.getValue();
                     jdk.getItems().setAll(choices);
                     jdk.setValue(choices.contains(previous) ? previous : choices.isEmpty() ? null : choices.get(0));
-                    rawUserPath = path;
-                    variables.getItems().setAll(rows);
-                    preview.setText(path.isBlank() ? "" : PathEditor.edit(path, root, removeOthers.isSelected()));
-                    apply.setDisable(path.isBlank());
-                    status.setText("");
+                    removeFromPath.setDisable(!onPath && javaHome.isBlank());
+                    updatePreview();
                 });
             } catch (Exception ex) {
-                javafx.application.Platform.runLater(() -> status.setText(ex.getMessage()));
+                Platform.runLater(() -> {
+                    status.setText("Couldn't read the environment: " + ex.getMessage());
+                    set.setDisable(true);
+                    removeFromPath.setDisable(true);
+                });
             }
-        }, "jkm-env-read");
-        worker.setDaemon(true);
-        worker.start();
+        });
     }
 
-    private static TableColumn<JavaVariables.Row, String> column(String title, double width, java.util.function.Function<JavaVariables.Row, String> value) {
+    private void updatePreview() {
+        String home = jdk.getValue();
+        set.setDisable(home == null || home.isBlank() || userPath.isBlank());
+        if (home == null || home.isBlank()) {
+            preview.setText("");
+            snippet.setText("");
+            return;
+        }
+        preview.setText(String.join("\n", EnvironmentPlan.forJava(userPath, root, home, removeOthers.isSelected()).path().split(";")));
+        snippet(target -> ShellSnippets.powershell(target.home(), target.major()));
+    }
+
+    private void snippet(Function<JavaOnPath.Jdk, String> build) {
+        String home = jdk.getValue();
+        if (home == null || home.isBlank()) {
+            status.setText("Select a JDK first.");
+            return;
+        }
+        try {
+            snippet.setText(build.apply(JavaOnPath.jdk(Path.of(home).resolve("bin").resolve("java.exe"))));
+        } catch (Exception ex) {
+            snippet.setText("");
+            status.setText(ex.getMessage());
+        }
+    }
+
+    private void setSelected() {
+        String home = jdk.getValue();
+        if (home == null || home.isBlank()) {
+            status.setText("Select a JDK first.");
+            return;
+        }
+        boolean removeOtherJava = removeOthers.isSelected();
+        if (!ConfirmDialog.confirm(this, Confirmations.setJavaHome(home, removeOtherJava))) {
+            return;
+        }
+        write(() -> {
+            UserPathWriter.live().write(current -> EnvironmentPlan.forJava(current, root, home, removeOtherJava));
+            markActive(home);
+            return "JAVA_HOME set to " + home + ". Open a new terminal to use it.";
+        });
+    }
+
+    private void removeFromPath() {
+        if (!ConfirmDialog.confirm(this, Confirmations.removeJavaFromPath())) {
+            return;
+        }
+        write(() -> {
+            UserPathWriter.live().write(EnvironmentPlan::withoutJava);
+            markActive(null);
+            return "Java is no longer on the user PATH.";
+        });
+    }
+
+    private void markActive(String home) throws java.io.IOException {
+        if (Files.exists(installationsFile)) {
+            stores.writeInstallations(installationsFile, Installations.markActive(stores.readInstallations(installationsFile), home));
+        }
+    }
+
+    @FunctionalInterface
+    private interface Step {
+        String run() throws Exception;
+    }
+
+    private void write(Step step) {
+        set.setDisable(true);
+        removeFromPath.setDisable(true);
+        worker.execute(() -> {
+            try {
+                String message = step.run();
+                Platform.runLater(() -> status.setText(message));
+            } catch (Exception ex) {
+                Platform.runLater(() -> status.setText(ex.getMessage()));
+            }
+            refresh();
+        });
+    }
+
+    private static TableColumn<JavaVariables.Row, String> column(String title, double width, Function<JavaVariables.Row, String> value) {
         TableColumn<JavaVariables.Row, String> column = new TableColumn<>(title);
         column.setPrefWidth(width);
         column.setCellValueFactory(cell -> new SimpleStringProperty(value.apply(cell.getValue())));

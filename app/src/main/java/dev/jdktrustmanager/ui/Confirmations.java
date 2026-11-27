@@ -76,6 +76,14 @@ public final class Confirmations {
                 "Remove from PATH");
     }
 
+    public static Prompt removeJavaFromPath() {
+        return new Prompt("Remove Java from PATH",
+                "Delete the user JAVA_HOME and take %JAVA_HOME%\\bin off the user PATH?\n\n"
+                        + "Installed JDKs stay on disk, and Maven, Ant, and Gradle stay on PATH. "
+                        + "A JAVA_HOME set for the whole machine, if any, takes over. Open a new terminal afterwards to pick up the change.",
+                "Remove from PATH");
+    }
+
     public static Prompt removeUrl(String url) {
         return new Prompt("Remove URL",
                 "Remove " + url + " from the trusted URLs?\n\nCertificates already imported from it stay in each JDK's cacerts. Sync doesn't remove them.",

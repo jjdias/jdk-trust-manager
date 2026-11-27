@@ -42,6 +42,25 @@ class EnvironmentPlanTest {
     }
 
     @Test
+    void removingJavaFromPathKeepsTheToolsAndEverythingElse() {
+        EnvironmentPlan plan = EnvironmentPlan.withoutJava("%JAVA_HOME%\\bin;%MAVEN_HOME%\\bin;C:\\Windows;C:\\Program Files\\Common Files\\Oracle\\Java\\javapath");
+
+        assertEquals("%MAVEN_HOME%\\bin;C:\\Windows;C:\\Program Files\\Common Files\\Oracle\\Java\\javapath", plan.path());
+        assertEquals(Set.of("JAVA_HOME"), plan.delete());
+        assertEquals(Map.of(), plan.set());
+    }
+
+    @Test
+    void otherJavaEntriesAreListedButNotToolsOrTheManagedEntry() {
+        String current = "%JAVA_HOME%\\bin;C:\\Program Files\\Common Files\\Oracle\\Java\\javapath;C:\\Java\\apache-maven-3.6.3\\bin;"
+                + "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.13.11-hotspot\\bin;C:\\Windows";
+
+        assertEquals(List.of("C:\\Program Files\\Common Files\\Oracle\\Java\\javapath",
+                "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.13.11-hotspot\\bin"),
+                PathEditor.otherJavaEntries(current, ROOT));
+    }
+
+    @Test
     void mavenSwitchGoesAfterJavaAndBeforeAnt() {
         EnvironmentPlan plan = EnvironmentPlan.forTool("%JAVA_HOME%\\bin;%ANT_HOME%\\bin;C:\\Windows", ROOT, BuildTools.MAVEN,
                 "C:\\Java\\build-tools\\maven-3.3.9", List.of());

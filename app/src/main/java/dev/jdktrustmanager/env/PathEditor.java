@@ -73,6 +73,18 @@ public final class PathEditor {
         return String.join(";", entries);
     }
 
+    /** {@code current} without {@code %JAVA_HOME%\bin}; nothing else moves. */
+    static String withoutJava(String current) {
+        return String.join(";", split(current).stream().filter(entry -> !same(entry, MANAGED)).toList());
+    }
+
+    /** The entries "Remove other Java PATH entries" would take out: other JDKs and Oracle's javapath, never tools. */
+    public static List<String> otherJavaEntries(String current, String root) {
+        return split(current).stream()
+                .filter(entry -> !isManaged(entry, root) && !isToolEntry(entry, root) && isOtherJava(entry))
+                .toList();
+    }
+
     public static boolean isManaged(String entry, String root) {
         if (isToolEntry(entry, root) || looksLikeTool(entry)) {
             return false;

@@ -22,6 +22,11 @@ public record EnvironmentPlan(Map<String, String> set, Set<String> delete, Strin
         return new EnvironmentPlan(Map.of("JAVA_HOME", javaHome), Set.of(), PathEditor.edit(currentPath, root, removeOtherJava));
     }
 
+    /** Takes Java off the user PATH: deletes JAVA_HOME and {@code %JAVA_HOME%\bin}; tool entries and everything else stay. */
+    public static EnvironmentPlan withoutJava(String currentPath) {
+        return new EnvironmentPlan(Map.of(), Set.of("JAVA_HOME"), PathEditor.withoutJava(currentPath));
+    }
+
     /** {@code homeOrNull == null} takes the tool off PATH and deletes its variables. */
     public static EnvironmentPlan forTool(String currentPath, String root, BuildTool tool, String homeOrNull,
             List<String> otherEntriesToRemove) {

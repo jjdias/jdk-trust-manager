@@ -18,15 +18,16 @@ import javafx.scene.Node;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 
-/** Top level: Java (today's six screens), then Maven, Ant, and Gradle. */
+/** Top level: Java (its five screens), Maven, Ant, Gradle, then Activity, which logs every tab's jobs. */
 public final class AppTabs extends TabPane {
 
-    public AppTabs(Node java, List<ToolTab> tools) {
+    public AppTabs(Node java, List<ToolTab> tools, Node activity) {
         setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
         getTabs().add(new Tab(Screens.TOP_LEVEL.get(0), java));
         for (ToolTab tab : tools) {
             getTabs().add(new Tab(tab.tool().displayName(), tab));
         }
+        getTabs().add(new Tab(Screens.TOP_LEVEL.get(Screens.TOP_LEVEL.size() - 1), activity));
     }
 
     /** The three tool tabs wired to the real network, state files, and work queue. */

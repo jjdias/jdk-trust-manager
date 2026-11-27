@@ -81,7 +81,7 @@ The root folder is configurable. Creating `C:\Java` or writing system-wide varia
 
 ## Screens
 
-Four top-level tabs: **Java**, **Maven**, **Ant**, and **Gradle**. The Java tab holds Catalog, Installed, Environment, Truststore, Trusted certificates, and Activity. Each build tool tab holds Versions, Installed, and Environment. Settings are in the **Options** menu. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
+Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, and **Activity**. The Java tab holds Catalog, Installed, Environment, Truststore, and Trusted certificates. Each build tool tab holds Versions, Installed, and Environment, and every Environment screen works the same way: pick a version, preview the new PATH, then Set or Remove from PATH. Activity logs the jobs from every tab. Settings are in the **Options** menu. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
 
 ## Build and run
 

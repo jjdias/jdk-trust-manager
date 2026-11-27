@@ -9,11 +9,10 @@ public final class Screens {
             "Installed",
             "Environment",
             "Truststore",
-            "Trusted certificates",
-            "Activity");
+            "Trusted certificates");
 
-    /** The app's top-level tabs. The Java tab holds {@link #NAMES}. */
-    public static final List<String> TOP_LEVEL = List.of("Java", "Maven", "Ant", "Gradle");
+    /** The app's top-level tabs. The Java tab holds {@link #NAMES}; Activity covers every tab's jobs. */
+    public static final List<String> TOP_LEVEL = List.of("Java", "Maven", "Ant", "Gradle", "Activity");
 
     /** Screens inside each build tool tab. */
     public static final List<String> TOOL = List.of("Versions", "Installed", "Environment");

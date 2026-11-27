@@ -75,6 +75,14 @@ class ConfirmationsTest {
     }
 
     @Test
+    void removeJavaFromPathNamesJavaHomeAndKeepsTools() {
+        Confirmations.Prompt prompt = Confirmations.removeJavaFromPath();
+        assertEquals("Remove from PATH", prompt.action());
+        assertTrue(prompt.message().contains("JAVA_HOME"));
+        assertTrue(prompt.message().contains("Maven, Ant, and Gradle"));
+    }
+
+    @Test
     void syncAllMentionsBackups() {
         assertTrue(Confirmations.syncAll().message().contains("backup"));
     }
