@@ -60,6 +60,43 @@ class EnvironmentPlanTest {
                 PathEditor.otherJavaEntries(current, ROOT));
     }
 
+    private static Map<dev.jdktrustmanager.buildtools.BuildTool, String> homes(String maven, String ant, String gradle) {
+        Map<dev.jdktrustmanager.buildtools.BuildTool, String> homes = new java.util.HashMap<>();
+        homes.put(BuildTools.MAVEN, maven);
+        homes.put(BuildTools.ANT, ant);
+        homes.put(BuildTools.GRADLE, gradle);
+        return homes;
+    }
+
+    @Test
+    void aProfileSetsItsToolsAndTakesTheOthersOffPath() {
+        EnvironmentPlan plan = EnvironmentPlan.forProfile("%JAVA_HOME%\\bin;%GRADLE_HOME%\\bin;C:\\Windows;C:\\tools", ROOT,
+                "C:\\Java\\temurin-8", homes("C:\\Java\\build-tools\\maven-3.3.9", "C:\\Java\\build-tools\\ant-1.9.16", null));
+
+        assertEquals("%JAVA_HOME%\\bin;%MAVEN_HOME%\\bin;%ANT_HOME%\\bin;C:\\Windows;C:\\tools", plan.path());
+        assertEquals(Map.of("JAVA_HOME", "C:\\Java\\temurin-8", "MAVEN_HOME", "C:\\Java\\build-tools\\maven-3.3.9",
+                "M2_HOME", "C:\\Java\\build-tools\\maven-3.3.9", "ANT_HOME", "C:\\Java\\build-tools\\ant-1.9.16"), plan.set());
+        assertEquals(Set.of("GRADLE_HOME"), plan.delete());
+    }
+
+    @Test
+    void activatingAProfileTwiceGivesTheSamePath() {
+        var tools = homes("C:\\Java\\build-tools\\maven-3.3.9", null, "C:\\Java\\build-tools\\gradle-8.10.2");
+        String once = EnvironmentPlan.forProfile("C:\\Windows;%ANT_HOME%\\bin", ROOT, "C:\\Java\\temurin-21", tools).path();
+
+        assertEquals(once, EnvironmentPlan.forProfile(once, ROOT, "C:\\Java\\temurin-21", tools).path());
+    }
+
+    @Test
+    void aProfileWithNoToolsTakesAllOfThemOff() {
+        EnvironmentPlan plan = EnvironmentPlan.forProfile("%JAVA_HOME%\\bin;%MAVEN_HOME%\\bin;%ANT_HOME%\\bin;%GRADLE_HOME%\\bin;C:\\Windows",
+                ROOT, "C:\\Java\\temurin-21", homes(null, null, null));
+
+        assertEquals("%JAVA_HOME%\\bin;C:\\Windows", plan.path());
+        assertEquals(Set.of("MAVEN_HOME", "M2_HOME", "ANT_HOME", "GRADLE_HOME"), plan.delete());
+        assertEquals(Map.of("JAVA_HOME", "C:\\Java\\temurin-21"), plan.set());
+    }
+
     @Test
     void mavenSwitchGoesAfterJavaAndBeforeAnt() {
         EnvironmentPlan plan = EnvironmentPlan.forTool("%JAVA_HOME%\\bin;%ANT_HOME%\\bin;C:\\Windows", ROOT, BuildTools.MAVEN,
