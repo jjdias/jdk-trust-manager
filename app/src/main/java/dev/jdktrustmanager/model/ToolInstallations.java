@@ -34,7 +34,10 @@ public final class ToolInstallations {
 
     /** That tool's rows, newest version first. */
     public static List<ToolInstallation> of(List<ToolInstallation> known, Tool tool) {
-        return known.stream().filter(item -> item.tool() == tool).toList();
+        return known.stream()
+                .filter(item -> item.tool() == tool)
+                .sorted((left, right) -> ToolVersions.NEWEST_FIRST.compare(left.version(), right.version()))
+                .toList();
     }
 
     private static ToolInstallation copy(ToolInstallation item, boolean active, boolean pinned) {
