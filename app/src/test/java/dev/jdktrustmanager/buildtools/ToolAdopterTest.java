@@ -55,6 +55,13 @@ class ToolAdopterTest {
     }
 
     @Test
+    void readsMaven2VersionsFromTheUberJar() throws Exception {
+        Path maven2 = home("apache-maven-2.2.1", "bin/mvn.bat", "maven-2.2.1-uber.jar");
+
+        assertEquals(Optional.of("2.2.1"), ToolAdopter.versionOf(BuildTools.MAVEN, maven2));
+    }
+
+    @Test
     void findsHomesFromVariablesPathAndRootsOnce() throws Exception {
         Path byVariable = home("apache-maven-3.6.3", "bin/mvn.cmd", "maven-core-3.6.3.jar");
         Path byPath = home("tools/maven-3.9.9", "bin/mvn.cmd", "maven-core-3.9.9.jar");

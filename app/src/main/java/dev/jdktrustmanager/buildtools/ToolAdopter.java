@@ -77,7 +77,7 @@ public final class ToolAdopter {
     public static Optional<String> versionOf(BuildTool tool, Path home) {
         Path lib = home.resolve("lib");
         return switch (tool.tool()) {
-            case MAVEN -> fromJarName(lib, "maven-core-");
+            case MAVEN -> fromJarName(lib, "maven-core-").or(() -> maven2Uber(lib));
             case GRADLE -> fromJarName(lib, "gradle-core-api-").or(() -> fromJarName(lib, "gradle-launcher-"))
                     .or(() -> fromJarName(lib, "gradle-core-"));
             case ANT -> implementationVersion(lib.resolve("ant.jar"));
@@ -156,6 +156,13 @@ public final class ToolAdopter {
         } catch (IOException ex) {
             return Optional.empty();
         }
+    }
+
+    /** Maven 2.0.x–2.2.x ship {@code lib\maven-<v>-uber.jar} instead of maven-core. */
+    private static Optional<String> maven2Uber(Path lib) {
+        return fromJarName(lib, "maven-")
+                .filter(name -> name.endsWith("-uber"))
+                .map(name -> name.substring(0, name.length() - "-uber".length()));
     }
 
     private static Optional<String> implementationVersion(Path jar) {
