@@ -297,7 +297,7 @@ Each version shows the minimum Java it needs (for example Maven 3.9 needs Java 8
 
 Built: a **Profiles** tab (list, create, Save current setup, edit, delete, activate) where the user saves named combinations of one JDK and any of Maven, Ant, and Gradle, for example "Release 4.2" = Temurin 8 + Maven 3.3.9 + Ant 1.9.16, and "Main" = Temurin 21 + Gradle 8.10.2. Applying a profile sets `JAVA_HOME`, the tool variables, and every managed `PATH` entry in one write, with one preview. A tool left out of a profile is removed from `PATH`. The per-tab switchers stay for one-off changes. Profiles are stored in `%LOCALAPPDATA%\JdkTrustManager\profiles.json`. A profile that points at a version no longer installed says which one is missing and offers to install it.
 
-Next in this stage: a profile drop-down in the top bar, next to Options, that shows the active profile ("custom" when none matches) and switches with one click. It reuses the Profiles tab's matching and activation.
+The profile drop-down in the top bar, next to Options, is built. It shows the active profile ("custom" when none matches), and every switch from it asks for confirmation first. Stage 2 is complete.
 
 ### Stage 3: Profile terminals
 

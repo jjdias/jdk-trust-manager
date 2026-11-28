@@ -15,3 +15,4 @@ Settled choices. Do not research them again and do not propose alternatives unle
 - Next stages: a Profiles tab (named JDK + tool combinations applied in one write), then profile terminals. See roadmap.md.
 - All verification is automated tests. Agents don't launch the app or run manual/live checks; the user does UI testing.
 - Profiles live in `dev.jdktrustmanager.profiles` (no JavaFX) and `%LOCALAPPDATA%\JdkTrustManager\profiles.json`. A profile stores identities (JDK vendor slug + major, tool versions), never folders. The active profile is computed from the registry (`ProfileMatch`), never stored. Activation is one `EnvironmentPlan.forProfile` write through `UserPathWriter`; tools a profile leaves out come off PATH.
+- The activation flow is shared in `ui.ProfileActivator`, used by the Profiles tab and the top-bar `ProfileSwitcher`. `profiles.SwitcherModel` holds the switcher's labels. Every switch always confirms.

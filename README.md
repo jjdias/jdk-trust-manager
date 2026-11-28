@@ -58,6 +58,7 @@ Get-FileHash .\JdkTrustManager-*-windows-x64.zip -Algorithm SHA256
 - **Activate** shows every change and the new `PATH`, then writes `JAVA_HOME`, the tool variables, and every managed `PATH` entry in one go. Tools the profile leaves out come off `PATH`.
 - A profile that uses a version that isn't installed lists it and offers to install it first. Nothing changes on `PATH` if an install fails.
 - The tab shows which profile matches your current setup. A one-off switch on another tab means none does.
+- The top bar has a profile drop-down next to **Options**, on every tab. It shows the profile that matches your current setup, or `custom` when none does. Picking a profile lists the same changes as the Profiles tab and always asks for confirmation first. Missing versions are offered for install first. Cancelling, or picking the active profile, changes nothing.
 
 ## Layout
 
@@ -89,7 +90,7 @@ The root folder is configurable. Creating `C:\Java` or writing system-wide varia
 
 ## Screens
 
-Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, **Profiles**, and **Activity**. The Java tab holds Catalog, Installed, Environment, Truststore, and Trusted certificates. Each build tool tab holds Versions, Installed, and Environment, and every Environment screen works the same way: pick a version, preview the new PATH, then Set or Remove from PATH. Activity logs the jobs from every tab. Settings are in the **Options** menu. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
+Top-level tabs: **Java**, **Maven**, **Ant**, **Gradle**, **Profiles**, and **Activity**. The Java tab holds Catalog, Installed, Environment, Truststore, and Trusted certificates. Each build tool tab holds Versions, Installed, and Environment, and every Environment screen works the same way: pick a version, preview the new PATH, then Set or Remove from PATH. Activity logs the jobs from every tab. Settings are in the **Options** menu. The profile drop-down in the top bar sits next to it. Actions that install or delete a version, change `PATH` or a home variable, or write `cacerts` ask first. Downloads, unzips, `keytool` calls, and registry writes run off the UI thread on a single work queue, so two jobs never change `C:\Java` at the same time.
 
 ## Build and run
 
@@ -127,7 +128,7 @@ One test installs a cached Temurin 21 zip. It is skipped until that zip is in `%
 
 ## Out of scope for now
 
-Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, per-profile trusted certificates, and Maven Wrapper or Gradle Wrapper downloads (projects using `mvnw` or `gradlew` keep fetching their own version). A profile switcher in the top bar and profile terminals are planned next; see [roadmap.md](roadmap.md).
+Linux and macOS, SDKMAN, Scoop, winget, JRE packages, native-image kits, early-access builds (behind a setting), editing private keys, per-profile trusted certificates, and Maven Wrapper or Gradle Wrapper downloads (projects using `mvnw` or `gradlew` keep fetching their own version). Profile terminals are planned next; see [roadmap.md](roadmap.md).
 
 ## License
 
