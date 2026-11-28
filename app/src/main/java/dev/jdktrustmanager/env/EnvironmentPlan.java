@@ -22,6 +22,29 @@ public record EnvironmentPlan(Map<String, String> set, Set<String> delete, Strin
         return new EnvironmentPlan(Map.of("JAVA_HOME", javaHome), Set.of(), PathEditor.edit(currentPath, root, removeOtherJava));
     }
 
+    /**
+     * A whole profile in one write: JAVA_HOME, then each of Maven, Ant, and Gradle either on PATH with its variables
+     * (home given) or off PATH with its variables deleted (null or absent). "Remove other Java entries" isn't applied.
+     */
+    public static EnvironmentPlan forProfile(String currentPath, String root, String javaHome, Map<BuildTool, String> toolHomesOrNull) {
+        Map<String, String> set = new LinkedHashMap<>();
+        Set<String> delete = new LinkedHashSet<>();
+        set.put("JAVA_HOME", javaHome);
+        String path = PathEditor.edit(currentPath, root, false);
+        for (BuildTool tool : dev.jdktrustmanager.buildtools.BuildTools.ALL) {
+            String home = toolHomesOrNull.get(tool);
+            for (String variable : tool.homeVariables()) {
+                if (home == null) {
+                    delete.add(variable);
+                } else {
+                    set.put(variable, home);
+                }
+            }
+            path = PathEditor.editTool(path, tool, home != null, List.of());
+        }
+        return new EnvironmentPlan(set, delete, path);
+    }
+
     /** Takes Java off the user PATH: deletes JAVA_HOME and {@code %JAVA_HOME%\bin}; tool entries and everything else stay. */
     public static EnvironmentPlan withoutJava(String currentPath) {
         return new EnvironmentPlan(Map.of(), Set.of("JAVA_HOME"), PathEditor.withoutJava(currentPath));

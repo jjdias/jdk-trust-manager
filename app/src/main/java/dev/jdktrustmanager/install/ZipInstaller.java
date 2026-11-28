@@ -42,6 +42,43 @@ public final class ZipInstaller {
         }
     }
 
+    /** Thrown before any download when the folder already holds this exact release. Nothing is downloaded or changed. */
+    public static final class AlreadyInstalledException extends IOException {
+        public AlreadyInstalledException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * True when {@code home} is a JDK whose release file names the same release as {@code javaVersion}. Build numbers are
+     * ignored ("21.0.13+9" equals "21.0.13") and "1.8.0_432" equals "8.0.432". A newer patch is not the same, so it still
+     * installs as an update.
+     */
+    /** The JAVA_VERSION in {@code home}'s release file, or null when {@code home} isn't a readable JDK. */
+    public static String installedVersion(Path home) {
+        if (home == null || !JdkScanner.isHome(home)) {
+            return null;
+        }
+        try {
+            return readRelease(home.resolve("release")).get("JAVA_VERSION");
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    public static boolean sameVersionInstalled(Path home, String javaVersion) {
+        if (javaVersion == null || !JdkScanner.isHome(home)) {
+            return false;
+        }
+        try {
+            String installed = readRelease(home.resolve("release")).get("JAVA_VERSION");
+            return installed != null && !dev.jdktrustmanager.model.Installations.newer(installed, javaVersion)
+                    && !dev.jdktrustmanager.model.Installations.newer(javaVersion, installed);
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
     /** Thrown when the user cancels a download. Nothing was installed and the partial zip is gone. */
     public static final class CancelledException extends IOException {
         public CancelledException() {
@@ -56,6 +93,72 @@ public final class ZipInstaller {
         static TrustReplay noop() {
             return home -> {
             };
+        }
+    }
+
+    /** Deletes the old copy after a successful replace; tests replace it. */
+    @FunctionalInterface
+    interface BackupRemover {
+        void remove(Path backup) throws IOException;
+    }
+
+    /** Finds programs running from a JDK folder; tests replace it. */
+    private final java.util.function.Function<Path, List<JdkInUse.Holder>> inUse;
+    private final BackupRemover removeBackup;
+
+    public ZipInstaller() {
+        this(JdkInUse::holders);
+    }
+
+    ZipInstaller(java.util.function.Function<Path, List<JdkInUse.Holder>> inUse) {
+        this(inUse, ZipInstaller::deleteWithRetry);
+    }
+
+    ZipInstaller(java.util.function.Function<Path, List<JdkInUse.Holder>> inUse, BackupRemover removeBackup) {
+        this.inUse = inUse;
+        this.removeBackup = removeBackup;
+    }
+
+    /** A file briefly held by antivirus or the search indexer usually frees up within a second or two. */
+    static void deleteWithRetry(Path folder) throws IOException {
+        IOException last = null;
+        for (int attempt = 0; attempt < 6; attempt++) {
+            try {
+                deleteRecursively(folder);
+                return;
+            } catch (IOException ex) {
+                last = ex;
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException(interrupted);
+                }
+            }
+        }
+        throw last;
+    }
+
+    /** Deletes leftover {@code <folder>.bak-<millis>} copies of {@code destination} from earlier updates. Best effort. */
+    static void removeStaleBackups(Path destination, InstallProgress progress) {
+        Path parent = destination.toAbsolutePath().getParent();
+        if (parent == null || !Files.isDirectory(parent)) {
+            return;
+        }
+        String prefix = destination.getFileName() + ".bak-";
+        try (var siblings = Files.list(parent)) {
+            for (Path sibling : siblings.toList()) {
+                if (sibling.getFileName().toString().startsWith(prefix) && Files.isDirectory(sibling)) {
+                    try {
+                        deleteRecursively(sibling);
+                        note(progress, "Removed a leftover old copy at " + sibling);
+                    } catch (IOException ex) {
+                        note(progress, "Couldn't remove the leftover old copy at " + sibling + " (" + ex.getMessage() + ")");
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+            // Nothing to clean up that we can see.
         }
     }
 
@@ -84,6 +187,17 @@ public final class ZipInstaller {
         if (detail == null || detail.checksum() == null || detail.checksum().isBlank() || !"sha256".equals(detail.checksumType())) {
             throw new IOException("SHA-256 is required");
         }
+        Path target = Layout.destination(root, Slug.of(pkg.distribution(), pkg.javafxBundled(), pkg.architecture()), pkg.major());
+        if (sameVersionInstalled(target, pkg.javaVersion())) {
+            throw new AlreadyInstalledException(pkg.distribution() + " " + pkg.javaVersion() + " is already installed in " + target);
+        }
+        if (Files.exists(target)) {
+            List<JdkInUse.Holder> holders = inUse.apply(target);
+            if (!holders.isEmpty()) {
+                throw new JdkInUse.InUseException(JdkInUse.message(target, holders));
+            }
+        }
+        removeStaleBackups(target, progress);
         Files.createDirectories(root);
         if (pkg.size() > 0 && Files.getFileStore(root).getUsableSpace() < pkg.size()) {
             throw new IOException("Not enough free space for " + pkg.filename());
@@ -110,8 +224,7 @@ public final class ZipInstaller {
         Layout.checkInsideRoot(root, destination, bundledRuntime);
         Path backup = null;
         if (Files.exists(destination)) {
-            backup = destination.resolveSibling(destination.getFileName() + ".bak-" + Instant.now().toEpochMilli());
-            Files.move(destination, backup);
+            backup = moveAside(destination);
         }
         Path unpacked = Files.createTempDirectory(root, ".unpack-");
         try {
@@ -129,8 +242,16 @@ public final class ZipInstaller {
                 throw new IOException("Feature version " + feature + " does not match " + pkg.major());
             }
             replay.replay(destination);
+            // From here the new JDK is in place, runs, and has its certificates: the install has succeeded. Removing the
+            // old copy is cleanup only. If Windows holds one of its files (antivirus, the indexer), the old copy stays as
+            // a .bak folder and is removed before the next install; it must never trigger the rollback below.
             if (backup != null) {
-                deleteRecursively(backup);
+                try {
+                    removeBackup.remove(backup);
+                } catch (IOException ex) {
+                    note(progress, "Couldn't remove the old copy at " + backup + " (" + ex.getMessage()
+                            + "). It will be removed before the next install of this JDK.");
+                }
             }
             return new Installation(
                     slug,
@@ -257,6 +378,23 @@ public final class ZipInstaller {
             throw new IOException("Expected one JDK home, found " + homes.size());
         }
         return homes.get(0);
+    }
+
+    /**
+     * Moves the installed folder out of the way before the new one goes in, so it can be put back if the install fails.
+     * When a program still has a file open in it (an IDE, a terminal running java, a Gradle or Maven daemon), Windows
+     * refuses the rename; after a few retries this says so plainly instead of the bare "a -> b" access error.
+     */
+    static Path moveAside(Path destination) throws IOException {
+        Path backup = destination.resolveSibling(destination.getFileName() + ".bak-" + Instant.now().toEpochMilli());
+        try {
+            moveWithRetry(destination, backup);
+            return backup;
+        } catch (java.nio.file.FileSystemException ex) {
+            throw new JdkInUse.InUseException(destination + " is in use, so it can't be replaced: a program has a file in it open. "
+                    + "Close programs running from this JDK or using its files (IDEs, terminals running java, Gradle or Maven daemons) "
+                    + "and try again. Nothing was changed.");
+        }
     }
 
     private static void moveWithRetry(Path home, Path destination) throws IOException {

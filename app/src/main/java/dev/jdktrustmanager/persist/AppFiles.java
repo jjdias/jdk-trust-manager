@@ -43,6 +43,10 @@ public final class AppFiles {
         return stateDir().resolve("keys");
     }
 
+    public static Path profiles() {
+        return stateDir().resolve("profiles.json");
+    }
+
     public static Path zipCache() {
         return stateDir().resolve("cache");
     }

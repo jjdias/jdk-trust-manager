@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Assumptions;
@@ -94,6 +95,122 @@ class ZipInstallerTest {
                 wrong, wrongDetail, directory.resolve("other-root"), cache, null, ZipInstaller.TrustReplay.noop()));
         assertFalse(Files.exists(directory.resolve("other-root").resolve("temurin-21")));
         assertTrue(Files.isRegularFile(cache.resolve(alteredSha + ".zip")));
+    }
+
+    @Test
+    void aConflictingFolderIsReplacedAndTheInstallContinues() throws Exception {
+        Path cached = dev.jdktrustmanager.persist.AppFiles.zipCache().resolve(TEMURIN_SHA + ".zip");
+        Assumptions.assumeTrue(Files.isRegularFile(cached),
+                "Skipped: install Temurin 21.0.13+9 once with the app so its zip is in the local cache");
+        Path cache = directory.resolve("cache");
+        Files.createDirectories(cache);
+        Files.copy(cached, cache.resolve(TEMURIN_SHA + ".zip"));
+        Path leftover = directory.resolve("temurin-21");
+        Files.createDirectories(leftover.resolve("lib"));
+        Files.writeString(leftover.resolve("lib").resolve("stale.jar"), "left from an interrupted install");
+        CatalogPackage pkg = new CatalogPackage("temurin-21", "temurin", 21, "21.0.13+9", "zip", "x64", false, true, true, "ga",
+                "lts", "unknown", "OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip", Files.size(cached), false);
+
+        new ZipInstaller().install(pkg, new PackageDetail("https://example.invalid/temurin.zip", TEMURIN_SHA, "sha256"),
+                directory, cache, null, ZipInstaller.TrustReplay.noop());
+
+        assertTrue(Files.isRegularFile(leftover.resolve("bin").resolve("java.exe")));
+        assertFalse(Files.exists(leftover.resolve("lib").resolve("stale.jar")));
+        try (var siblings = Files.list(directory)) {
+            assertTrue(siblings.noneMatch(path -> path.getFileName().toString().startsWith("temurin-21.bak-")));
+        }
+    }
+
+    @Test
+    void aBackupThatCannotBeDeletedNeverUndoesAFinishedUpdate() throws Exception {
+        Path cached = dev.jdktrustmanager.persist.AppFiles.zipCache().resolve(TEMURIN_SHA + ".zip");
+        Assumptions.assumeTrue(Files.isRegularFile(cached),
+                "Skipped: install Temurin 21.0.13+9 once with the app so its zip is in the local cache");
+        Path cache = directory.resolve("cache");
+        Files.createDirectories(cache);
+        Files.copy(cached, cache.resolve(TEMURIN_SHA + ".zip"));
+        Path old = directory.resolve("temurin-21");
+        Files.createDirectories(old.resolve("bin"));
+        Files.writeString(old.resolve("release"), "JAVA_VERSION=\"21.0.12\"\n");
+        Files.write(old.resolve("bin").resolve("java.exe"), new byte[] {1});
+        CatalogPackage pkg = new CatalogPackage("temurin-21", "temurin", 21, "21.0.13+9", "zip", "x64", false, true, true, "ga",
+                "lts", "unknown", "OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip", Files.size(cached), false);
+        ZipInstaller installer = new ZipInstaller(folder -> List.of(), backup -> {
+            throw new java.nio.file.AccessDeniedException(backup.resolve("bin").resolve("locked.dll").toString());
+        });
+        List<String> log = new java.util.ArrayList<>();
+
+        Installation installed = installer.install(pkg, new PackageDetail("https://example.invalid/t.zip", TEMURIN_SHA, "sha256"),
+                directory, cache, null, ZipInstaller.TrustReplay.noop(), new ZipInstaller.InstallProgress() {
+                    public void log(String line) { log.add(line); }
+                    public void bytes(long read, long total) { }
+                    public void phase(String phase) { log.add(phase); }
+                });
+
+        assertEquals("21.0.13", installed.javaVersion());
+        assertTrue(ZipInstaller.sameVersionInstalled(old, "21.0.13+9"));
+        assertTrue(log.stream().anyMatch(line -> line.contains("Couldn't remove the old copy")));
+    }
+
+    @Test
+    void staleBackupsOfThatJdkAreRemovedBeforeTheNextInstall() throws Exception {
+        Path stale = directory.resolve("temurin-21.bak-1795859619467");
+        Files.createDirectories(stale.resolve("bin"));
+        Files.write(stale.resolve("bin").resolve("api-ms-win-core-console-l1-2-0.dll"), new byte[] {1});
+        Path other = directory.resolve("zulu-21.bak-1");
+        Files.createDirectories(other);
+
+        ZipInstaller.removeStaleBackups(directory.resolve("temurin-21"), null);
+
+        assertFalse(Files.exists(stale));
+        assertTrue(Files.exists(other));
+    }
+
+    @Test
+    void backupFoldersAreNotListedAsJdks() throws Exception {
+        Path stale = directory.resolve("temurin-21.bak-1795859619467");
+        Files.createDirectories(stale.resolve("bin"));
+        Files.writeString(stale.resolve("release"), "JAVA_VERSION=\"21.0.13\"\n");
+        Files.write(stale.resolve("bin").resolve("java.exe"), new byte[] {1});
+
+        assertEquals(List.of(), new JdkScanner().scan(directory, List.of(), List.of(), List.of()));
+    }
+
+    private static CatalogPackage temurin21(String javaVersion) {
+        return new CatalogPackage("temurin-21", "temurin", 21, javaVersion, "zip", "x64", false, true, true, "ga", "lts",
+                "unknown", "OpenJDK21U.zip", 1, false);
+    }
+
+    private Path fakeTemurin21(String releaseVersion) throws IOException {
+        Path home = directory.resolve("temurin-21");
+        Files.createDirectories(home.resolve("bin"));
+        Files.writeString(home.resolve("release"), "JAVA_VERSION=\"" + releaseVersion + "\"\n");
+        Files.write(home.resolve("bin").resolve("java.exe"), new byte[] {1});
+        return home;
+    }
+
+    @Test
+    void theSameJdkVersionIsNeverDownloadedAgain() throws Exception {
+        fakeTemurin21("21.0.13");
+        PackageDetail detail = new PackageDetail("https://example.invalid/never-fetched.zip", "a".repeat(64), "sha256");
+
+        ZipInstaller.AlreadyInstalledException error = assertThrows(ZipInstaller.AlreadyInstalledException.class,
+                () -> new ZipInstaller().install(temurin21("21.0.13+9"), detail, directory, directory.resolve("cache"), null,
+                        ZipInstaller.TrustReplay.noop()));
+
+        assertTrue(error.getMessage().contains("already installed"));
+        assertTrue(Files.isRegularFile(directory.resolve("temurin-21").resolve("bin").resolve("java.exe")));
+    }
+
+    @Test
+    void sameVersionComparesReleasesNotBuildNumbers() throws Exception {
+        Path home = fakeTemurin21("21.0.13");
+
+        assertTrue(ZipInstaller.sameVersionInstalled(home, "21.0.13+9"));
+        assertFalse(ZipInstaller.sameVersionInstalled(home, "21.0.14+7"));
+        assertFalse(ZipInstaller.sameVersionInstalled(directory.resolve("nothing-here"), "21.0.13+9"));
+        Files.writeString(home.resolve("release"), "JAVA_VERSION=\"1.8.0_432\"\n");
+        assertTrue(ZipInstaller.sameVersionInstalled(home, "8.0.432+6"));
     }
 
     private static void rewriteRelease(Path jdkHome, Path zip, String version) throws Exception {

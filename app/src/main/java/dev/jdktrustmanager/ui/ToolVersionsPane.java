@@ -142,8 +142,19 @@ final class ToolVersionsPane extends BorderPane {
                 tool.keysUrl().isPresent()))) {
             return;
         }
+        context.queue().submit(installJob(tool, release, context, message -> {
+            status.setText(message);
+            changed.run();
+        }));
+    }
+
+    /**
+     * Installs one tool version on the work queue and records it. {@code onFinished} runs on the FX thread with the
+     * result or error message. Also used by the Profiles tab for missing versions.
+     */
+    static WorkQueue.Job installJob(BuildTool tool, ToolRelease release, ToolContext context, java.util.function.Consumer<String> onFinished) {
         WorkQueue queue = context.queue();
-        queue.submit(new WorkQueue.Job() {
+        return new WorkQueue.Job() {
             @Override
             public WorkQueue.Kind kind() {
                 return WorkQueue.Kind.INSTALL;
@@ -163,16 +174,13 @@ final class ToolVersionsPane extends BorderPane {
                                     + " only, because Apache's signing keys couldn't be reached."
                             : "Installed " + tool.displayName() + " " + release.version() + " in " + row.path();
                     progress.log(message);
-                    Platform.runLater(() -> {
-                        status.setText(message);
-                        changed.run();
-                    });
+                    Platform.runLater(() -> onFinished.accept(message));
                 } catch (Exception ex) {
-                    Platform.runLater(() -> status.setText(ex.getMessage()));
+                    Platform.runLater(() -> onFinished.accept(ex.getMessage()));
                     throw ex;
                 }
             }
-        });
+        };
     }
 
     static ZipInstaller.InstallProgress adapter(WorkQueue.Progress progress, WorkQueue queue) {
