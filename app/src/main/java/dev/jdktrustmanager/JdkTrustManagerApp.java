@@ -57,12 +57,19 @@ public class JdkTrustManagerApp extends Application {
         EnvironmentPane environment = new EnvironmentPane(settings.rootDirectory(), AppFiles.installations(), stores);
         SettingsPane preferences = new SettingsPane(settings, AppFiles.settings(), stores, current::set);
         MainView java = new MainView(catalog, installed, environment, truststore, trusted);
-        BorderPane shell = new BorderPane(AppTabs.create(java, activity, managedRoot, stores, queue, current::get,
-                new CatalogBrowser(discoCatalog), client));
+        AppTabs tabs = AppTabs.create(java, activity, managedRoot, stores, queue, current::get,
+                new CatalogBrowser(discoCatalog), client);
+        preferences.getChildren().add(tabs.switcher());
+        BorderPane shell = new BorderPane(tabs);
         shell.setTop(preferences);
         shell.setBottom(new JobProgressPane(queue));
         stage.setTitle("JDK Trust Manager");
         stage.setScene(new Scene(shell, 980, 760));
+        stage.focusedProperty().addListener((observable, was, focused) -> {
+            if (focused) {
+                tabs.refreshProfiles();
+            }
+        });
         stage.show();
     }
 

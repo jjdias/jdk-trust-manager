@@ -24,7 +24,13 @@ import javafx.scene.control.TabPane;
 /** Top level: Java (its five screens), Maven, Ant, Gradle, Profiles, then Activity, which logs every tab's jobs. */
 public final class AppTabs extends TabPane {
 
-    public AppTabs(Node java, List<ToolTab> tools, ProfilesPane profiles, Node activity) {
+    private final ProfileActivator activator;
+    private final ProfileSwitcher switcher;
+
+    public AppTabs(Node java, List<ToolTab> tools, ProfilesPane profiles, Node activity, ProfileActivator activator,
+            ProfileSwitcher switcher) {
+        this.activator = activator;
+        this.switcher = switcher;
         setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
         getTabs().add(new Tab(Screens.TOP_LEVEL.get(0), java));
         for (ToolTab tab : tools) {
@@ -44,8 +50,25 @@ public final class AppTabs extends TabPane {
     public static AppTabs create(Node java, Node activity, Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings,
             CatalogBrowser browser, DiscoClient client) {
         ToolContext context = context(root, stores, queue, settings);
-        return new AppTabs(java, toolTabs(context), new ProfilesPane(context, new ProfileStore(stores, AppFiles.profiles()), browser, client),
-                activity);
+        ProfileStore profileStore = new ProfileStore(stores, AppFiles.profiles());
+        ProfileActivator activator = new ProfileActivator(context, profileStore, browser, client);
+        queue.subscribe(event -> {
+            if (event.state() == WorkQueue.State.DONE || event.state() == WorkQueue.State.FAILED) {
+                activator.changed();
+            }
+        });
+        return new AppTabs(java, toolTabs(context), new ProfilesPane(context, profileStore, activator), activity, activator,
+                new ProfileSwitcher(activator, context, profileStore));
+    }
+
+    /** The top-bar profile drop-down; the app adds it beside Options. */
+    public ProfileSwitcher switcher() {
+        return switcher;
+    }
+
+    /** Tells the Profiles tab and the switcher to re-read, for example when the window regains focus. */
+    public void refreshProfiles() {
+        activator.changed();
     }
 
     static ToolContext context(Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings) {

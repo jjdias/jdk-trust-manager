@@ -1,36 +1,12 @@
 package dev.jdktrustmanager.ui;
 
-import dev.jdktrustmanager.buildtools.BuildTool;
-import dev.jdktrustmanager.buildtools.BuildTools;
-import dev.jdktrustmanager.buildtools.ToolLayout;
-import dev.jdktrustmanager.buildtools.ToolRelease;
-import dev.jdktrustmanager.catalog.CatalogBrowser;
-import dev.jdktrustmanager.catalog.DiscoClient;
-import dev.jdktrustmanager.env.EnvironmentPlan;
-import dev.jdktrustmanager.env.JavaVariables;
-import dev.jdktrustmanager.env.RegistryEnvironment;
-import dev.jdktrustmanager.env.UserPathWriter;
-import dev.jdktrustmanager.install.WorkQueue;
-import dev.jdktrustmanager.model.Distribution;
-import dev.jdktrustmanager.model.Installation;
-import dev.jdktrustmanager.model.Installations;
 import dev.jdktrustmanager.model.Profile;
 import dev.jdktrustmanager.model.Tool;
-import dev.jdktrustmanager.model.ToolInstallations;
 import dev.jdktrustmanager.profiles.CurrentSetup;
-import dev.jdktrustmanager.profiles.JdkSource;
-import dev.jdktrustmanager.profiles.ProfileActivation;
-import dev.jdktrustmanager.profiles.ProfileMatch;
 import dev.jdktrustmanager.profiles.ProfileResolver;
 import dev.jdktrustmanager.profiles.ProfileStore;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,15 +24,9 @@ import javafx.scene.layout.VBox;
 /** List, create, edit, delete, and activate profiles. Every write goes through the work queue and UserPathWriter. */
 public final class ProfilesPane extends BorderPane {
 
-    /** Everything a refresh reads, gathered off the FX thread. */
-    private record Snapshot(List<Profile> profiles, String error, Optional<String> active, Map<String, List<String>> missing,
-            List<Installation> managed, Map<Tool, List<String>> installed, Map<String, String> userVariables, String userPath) {
-    }
-
     private final ToolContext context;
     private final ProfileStore store;
-    private final CatalogBrowser browser;
-    private final DiscoClient client;
+    private final ProfileActivator activator;
     private final ListView<Profile> list = new ListView<>();
     private final Label activeLine = new Label();
     private final Label status = new Label();
@@ -66,18 +36,17 @@ public final class ProfilesPane extends BorderPane {
     private final Button edit = new Button("Edit");
     private final Button delete = new Button("Delete");
     private final Button activate = new Button("Activate");
-    private Snapshot snapshot = new Snapshot(List.of(), null, Optional.empty(), Map.of(), List.of(), Map.of(), Map.of(), "");
+    private ProfileState snapshot = ProfileState.empty();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "jkm-profiles");
         thread.setDaemon(true);
         return thread;
     });
 
-    public ProfilesPane(ToolContext context, ProfileStore store, CatalogBrowser browser, DiscoClient client) {
+    public ProfilesPane(ToolContext context, ProfileStore store, ProfileActivator activator) {
         this.context = context;
         this.store = store;
-        this.browser = browser;
-        this.client = client;
+        this.activator = activator;
         status.setWrapText(true);
         activeLine.setWrapText(true);
         details.setEditable(false);
@@ -108,49 +77,18 @@ public final class ProfilesPane extends BorderPane {
         setBottom(details);
         Spacing.page(this);
         enableButtons();
+        activator.onChange(this::refresh);
         refresh();
     }
 
     public void refresh() {
         worker.execute(() -> {
-            Snapshot next = read();
+            ProfileState next = ProfileState.read(context, store);
             Platform.runLater(() -> show(next));
         });
     }
 
-    private Snapshot read() {
-        Path root = context.root();
-        Map<String, String> user = Map.of();
-        try {
-            user = RegistryEnvironment.readAll(RegistryEnvironment.USER).orElse(Map.of());
-        } catch (IOException | InterruptedException ex) {
-            if (ex instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        Map<Tool, List<String>> installed = new EnumMap<>(Tool.class);
-        for (BuildTool tool : BuildTools.ALL) {
-            try {
-                installed.put(tool.tool(), ToolLayout.installed(root, tool).stream().map(home -> ToolLayout.versionOf(tool, home)).toList());
-            } catch (IOException ex) {
-                installed.put(tool.tool(), List.of());
-            }
-        }
-        List<Installation> managed = context.managedJdks();
-        String userPath = JavaVariables.find(user, "Path");
-        try {
-            List<Profile> profiles = store.read();
-            Map<String, List<String>> missing = new HashMap<>();
-            for (Profile profile : profiles) {
-                missing.put(profile.name(), labels(resolve(profile).missing()));
-            }
-            return new Snapshot(profiles, null, ProfileMatch.active(profiles, user, root), missing, managed, installed, user, userPath);
-        } catch (IOException | RuntimeException ex) {
-            return new Snapshot(List.of(), ex.getMessage(), Optional.empty(), Map.of(), managed, installed, user, userPath);
-        }
-    }
-
-    private void show(Snapshot next) {
+    private void show(ProfileState next) {
         snapshot = next;
         Profile before = list.getSelectionModel().getSelectedItem();
         list.getItems().setAll(next.profiles());
@@ -204,7 +142,7 @@ public final class ProfilesPane extends BorderPane {
                 text.append(slotLine(slot)).append('\n');
             }
             text.append("\nPATH after activating:\n");
-            for (String entry : plan(profile, resolved, snapshot.userPath()).path().split(";")) {
+            for (String entry : activator.plan(profile, resolved, snapshot.userPath()).path().split(";")) {
                 text.append("  ").append(entry).append('\n');
             }
             details.setText(text.toString());
@@ -223,15 +161,6 @@ public final class ProfilesPane extends BorderPane {
 
     private ProfileResolver.Resolved resolve(Profile profile) {
         return ProfileResolver.resolve(profile, context.root());
-    }
-
-    private EnvironmentPlan plan(Profile profile, ProfileResolver.Resolved resolved, String currentPath) {
-        Map<BuildTool, String> homes = new HashMap<>();
-        for (BuildTool tool : BuildTools.ALL) {
-            ProfileResolver.Slot slot = resolved.tools().get(tool.tool());
-            homes.put(tool, slot == null ? null : slot.folder().toString());
-        }
-        return EnvironmentPlan.forProfile(currentPath, context.root().toString(), resolved.jdk().folder().toString(), homes);
     }
 
     private void saveCurrent() {
@@ -253,10 +182,9 @@ public final class ProfilesPane extends BorderPane {
                         message = ex.getMessage();
                     }
                     String text = message;
-                    Snapshot next = read();
                     Platform.runLater(() -> {
-                        show(next);
                         status.setText(text);
+                        activator.changed();
                     });
                 }));
     }
@@ -274,145 +202,14 @@ public final class ProfilesPane extends BorderPane {
                 message = ex.getMessage();
             }
             String text = message;
-            Snapshot next = read();
             Platform.runLater(() -> {
-                show(next);
                 status.setText(text);
+                activator.changed();
             });
         });
     }
 
-    /** Resolve, offer to install what's missing, confirm the change list, then queue installs and the one write. */
     private void activate(Profile profile) {
-        ProfileResolver.Resolved resolved = resolve(profile);
-        if (resolved.missing().isEmpty()) {
-            confirmAndActivate(profile, resolved, List.of());
-            return;
-        }
-        status.setText("Looking up the missing versions…");
-        worker.execute(() -> {
-            List<WorkQueue.Job> installs = new ArrayList<>();
-            List<String> cannot = new ArrayList<>();
-            for (ProfileResolver.Slot slot : resolved.missing()) {
-                Optional<WorkQueue.Job> job = slot == resolved.jdk() ? jdkInstall(profile) : toolInstall(profile, slot);
-                job.ifPresentOrElse(installs::add, () -> cannot.add(slot.label()));
-            }
-            Platform.runLater(() -> {
-                status.setText("");
-                var prompt = Confirmations.installMissing(profile.name(), labels(resolved.missing()), cannot);
-                if (!ConfirmDialog.confirm(this, prompt)) {
-                    return;
-                }
-                if (!cannot.isEmpty()) {
-                    installs.forEach(context.queue()::submit);
-                    status.setText("Installing what can be installed. Activate " + profile.name() + " once the rest is installed.");
-                    return;
-                }
-                confirmAndActivate(profile, resolved, installs);
-            });
-        });
-    }
-
-    private void confirmAndActivate(Profile profile, ProfileResolver.Resolved resolved, List<WorkQueue.Job> installsFirst) {
-        String preview = plan(profile, resolved, snapshot.userPath()).path();
-        var prompt = Confirmations.activateProfile(profile.name(), ProfileActivation.changes(resolved),
-                ProfileActivation.javaWarnings(profile),
-                ProfileActivation.leftoverEntries(resolved, snapshot.userPath(), context.root().toString()), preview);
-        if (!ConfirmDialog.confirm(this, prompt)) {
-            return;
-        }
-        installsFirst.forEach(context.queue()::submit);
-        context.queue().submit(activationJob(profile));
-        status.setText(installsFirst.isEmpty() ? "Activating " + profile.name() + "…" : "Installing, then activating " + profile.name() + "…");
-    }
-
-    /** Runs after any installs: checks every slot again and writes nothing if one is still missing. */
-    private WorkQueue.Job activationJob(Profile profile) {
-        return new WorkQueue.Job() {
-            @Override
-            public WorkQueue.Kind kind() {
-                return WorkQueue.Kind.ADOPT;
-            }
-
-            @Override
-            public void run(WorkQueue.Progress progress) throws Exception {
-                try {
-                    ProfileResolver.Resolved again = resolve(profile);
-                    Optional<String> blocked = ProfileActivation.readyToWrite(again);
-                    if (blocked.isPresent()) {
-                        throw new IOException(blocked.get());
-                    }
-                    UserPathWriter.live().write(current -> plan(profile, again, current));
-                    String jdkHome = again.jdk().folder().toString();
-                    if (Files.exists(context.installationsFile())) {
-                        context.stores().writeInstallations(context.installationsFile(),
-                                Installations.markActive(context.stores().readInstallations(context.installationsFile()), jdkHome));
-                    }
-                    context.update(all -> {
-                        List<dev.jdktrustmanager.model.ToolInstallation> next = all;
-                        for (BuildTool tool : BuildTools.ALL) {
-                            ProfileResolver.Slot slot = again.tools().get(tool.tool());
-                            next = ToolInstallations.markActive(next, tool.tool(), slot == null ? null : slot.folder().toString());
-                        }
-                        return next;
-                    });
-                    String message = "Activated " + profile.name() + ". Open a new terminal to use it.";
-                    progress.log(message);
-                    Snapshot next = read();
-                    Platform.runLater(() -> {
-                        show(next);
-                        status.setText(message);
-                    });
-                } catch (Exception ex) {
-                    Snapshot next = read();
-                    Platform.runLater(() -> {
-                        show(next);
-                        status.setText(ex.getMessage());
-                    });
-                    throw ex;
-                }
-            }
-        };
-    }
-
-    /** An install job for the profile's JDK, or empty when the catalog doesn't offer that vendor and major. */
-    private Optional<WorkQueue.Job> jdkInstall(Profile profile) {
-        try {
-            var settings = context.settings().get();
-            Optional<Distribution> vendor = JdkSource.find(browser.vendors(settings, false), profile.jdk());
-            if (vendor.isEmpty()) {
-                return Optional.empty();
-            }
-            CatalogBrowser.Card card = browser.latest(vendor.get(), profile.jdk().major(), settings, JdkSource.javafx(profile.jdk()), false);
-            if (card.pkg() == null) {
-                return Optional.empty();
-            }
-            return Optional.of(new InstallJob(card, client, context.settings(), context.queue(), context.stores(), this::refresh));
-        } catch (IOException | RuntimeException ex) {
-            return Optional.empty();
-        }
-    }
-
-    /** An install job for a missing tool version, or empty when the version list doesn't have it. */
-    private Optional<WorkQueue.Job> toolInstall(Profile profile, ProfileResolver.Slot slot) {
-        for (BuildTool tool : BuildTools.ALL) {
-            String version = profile.version(tool.tool());
-            ProfileResolver.Slot toolSlot = resolve(profile).tools().get(tool.tool());
-            if (version == null || toolSlot == null || !toolSlot.label().equals(slot.label())) {
-                continue;
-            }
-            try {
-                Optional<ToolRelease> release = context.catalog().releases(tool, context.settings().get().catalogMaxAgeHours(), false)
-                        .value().stream().filter(item -> item.version().equals(version)).findFirst();
-                return release.map(item -> ToolVersionsPane.installJob(tool, item, context, message -> refresh()));
-            } catch (IOException | RuntimeException ex) {
-                return Optional.empty();
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static List<String> labels(List<ProfileResolver.Slot> slots) {
-        return slots.stream().map(ProfileResolver.Slot::label).toList();
+        activator.activate(this, profile, snapshot.userPath(), status::setText);
     }
 }
