@@ -8,17 +8,17 @@ The work moves between legacy and current projects from day to day. With the Pro
 
 ## What
 
-- **Where:** a drop-down in the top bar, to the right of **Options**, visible on every tab.
+- **Where:** a menu button in the top bar (with a small status label beside it), to the right of **Options**, visible on every tab.
 - **What it shows:** `Profile: <name>` for the profile that matches the current setup, or `Profile: custom` when none matches. The list holds every profile; a profile with missing versions is marked `(missing …)`.
 - **Picking another profile** runs exactly the Profiles tab's activation, decided with the user:
   - It **always confirms**, showing the change list, Java warnings, unmanaged entries that stay on PATH, and the PATH preview.
   - When versions are missing, it asks to install them first.
-- **Cancelling, or picking the active profile again,** changes nothing, and the drop-down goes back to the active profile.
+- **Cancelling, or picking the active profile again,** changes nothing, and the button keeps showing the active profile.
 - **Staying in step:**
   - The switcher and the Profiles tab show the same "active" state.
   - Both refresh after any activation from either place.
-  - Both also refresh after every finished work-queue job, so per-tab switches move the drop-down to `custom`, and when the app window regains focus, to pick up changes made outside the app.
-- **When profiles.json can't be read** (newer or malformed), the drop-down shows `Profile: unavailable` and is disabled. The tab explains why.
+  - Both also refresh after every finished work-queue job, so per-tab switches move the button to `custom`, and when the app window regains focus, to pick up changes made outside the app.
+- **When profiles.json can't be read** (newer or malformed), the button shows `Profile: unavailable` and is disabled. The tab explains why.
 
 ## Approach
 
@@ -26,7 +26,7 @@ There is only one sensible way. The activation flow moves out of `ProfilesPane` 
 
 The "which profile is active / what does the list show" logic is pure (`profiles` package), so it's unit-tested:
 - `SwitcherModel.items(...)` builds the labels;
-- `SwitcherModel.selection(...)` gives the active profile, `custom`, or `unavailable`.
+- `SwitcherModel.title(...)` gives the button text (the active profile, `custom`, or `unavailable`), and `SwitcherModel.selected(...)` finds the active entry in the list.
 
 ## Non-goals
 
