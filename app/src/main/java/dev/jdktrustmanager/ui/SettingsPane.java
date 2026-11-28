@@ -90,6 +90,7 @@ public final class SettingsPane extends HBox {
         });
         setAlignment(Pos.CENTER_LEFT);
         setPadding(new Insets(8, 16, 8, 16));
+        setSpacing(Spacing.GAP);
         getChildren().add(options);
     }
 
