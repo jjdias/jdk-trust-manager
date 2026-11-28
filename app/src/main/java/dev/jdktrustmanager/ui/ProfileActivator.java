@@ -12,6 +12,7 @@ import dev.jdktrustmanager.model.Distribution;
 import dev.jdktrustmanager.model.Installations;
 import dev.jdktrustmanager.model.Profile;
 import dev.jdktrustmanager.model.ToolInstallations;
+import dev.jdktrustmanager.profiles.ActivationGate;
 import dev.jdktrustmanager.profiles.JdkSource;
 import dev.jdktrustmanager.profiles.ProfileActivation;
 import dev.jdktrustmanager.profiles.ProfileResolver;
@@ -37,9 +38,10 @@ public final class ProfileActivator {
     private final ProfileStore store;
     private final CatalogBrowser browser;
     private final DiscoClient client;
+    private final ActivationGate gate = new ActivationGate();
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "jkm-profiles");
+        Thread thread = new Thread(runnable, "jkm-profile-lookup");
         thread.setDaemon(true);
         return thread;
     });
@@ -62,13 +64,36 @@ public final class ProfileActivator {
 
     /** Resolve, offer to install what's missing, confirm the change list, then queue installs and the one write. */
     public void activate(Node owner, Profile profile, String userPath, Consumer<String> status) {
+        if (!gate.tryStart()) {
+            status.accept("A profile switch is already in progress.");
+            return;
+        }
+        try {
+            start(owner, profile, userPath, status);
+        } catch (RuntimeException ex) {
+            gate.finish();
+            throw ex;
+        }
+    }
+
+    private void start(Node owner, Profile profile, String userPath, Consumer<String> status) {
         ProfileResolver.Resolved resolved = resolve(profile);
         if (resolved.missing().isEmpty()) {
             confirmAndActivate(owner, profile, resolved, List.of(), userPath, status);
             return;
         }
         status.accept("Looking up the missing versions…");
-        worker.execute(() -> {
+        try {
+            worker.execute(() -> lookUpInstalls(owner, profile, resolved, userPath, status));
+        } catch (RuntimeException ex) {
+            gate.finish();
+            throw ex;
+        }
+    }
+
+    private void lookUpInstalls(Node owner, Profile profile, ProfileResolver.Resolved resolved, String userPath,
+            Consumer<String> status) {
+        try {
             List<WorkQueue.Job> installs = new ArrayList<>();
             List<String> cannot = new ArrayList<>();
             for (ProfileResolver.Slot slot : resolved.missing()) {
@@ -76,19 +101,29 @@ public final class ProfileActivator {
                 job.ifPresentOrElse(installs::add, () -> cannot.add(slot.label()));
             }
             Platform.runLater(() -> {
-                status.accept("");
-                var prompt = Confirmations.installMissing(profile.name(), labels(resolved.missing()), cannot);
-                if (!ConfirmDialog.confirm(owner, prompt)) {
-                    return;
+                try {
+                    status.accept("");
+                    var prompt = Confirmations.installMissing(profile.name(), labels(resolved.missing()), cannot);
+                    if (!ConfirmDialog.confirm(owner, prompt)) {
+                        gate.finish();
+                        return;
+                    }
+                    if (!cannot.isEmpty()) {
+                        installs.forEach(context.queue()::submit);
+                        status.accept("Installing what can be installed. Activate " + profile.name() + " once the rest is installed.");
+                        gate.finish();
+                        return;
+                    }
+                    confirmAndActivate(owner, profile, resolved, installs, userPath, status);
+                } catch (RuntimeException ex) {
+                    gate.finish();
+                    throw ex;
                 }
-                if (!cannot.isEmpty()) {
-                    installs.forEach(context.queue()::submit);
-                    status.accept("Installing what can be installed. Activate " + profile.name() + " once the rest is installed.");
-                    return;
-                }
-                confirmAndActivate(owner, profile, resolved, installs, userPath, status);
             });
-        });
+        } catch (RuntimeException ex) {
+            gate.finish();
+            throw ex;
+        }
     }
 
     private void confirmAndActivate(Node owner, Profile profile, ProfileResolver.Resolved resolved, List<WorkQueue.Job> installsFirst,
@@ -98,6 +133,7 @@ public final class ProfileActivator {
                 ProfileActivation.javaWarnings(profile),
                 ProfileActivation.leftoverEntries(resolved, userPath, context.root().toString()), preview);
         if (!ConfirmDialog.confirm(owner, prompt)) {
+            gate.finish();
             return;
         }
         installsFirst.forEach(context.queue()::submit);
@@ -137,12 +173,12 @@ public final class ProfileActivator {
                     });
                     String message = "Activated " + profile.name() + ". Open a new terminal to use it.";
                     progress.log(message);
-                    changed();
                     Platform.runLater(() -> status.accept(message));
                 } catch (Exception ex) {
-                    changed();
                     Platform.runLater(() -> status.accept(ex.getMessage()));
                     throw ex;
+                } finally {
+                    gate.finish();
                 }
             }
         };
