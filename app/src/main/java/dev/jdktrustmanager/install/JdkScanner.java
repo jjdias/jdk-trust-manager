@@ -51,7 +51,10 @@ public final class JdkScanner {
             return;
         }
         if (directory.getFileName() != null && (Layout.TRUSTED_CERTS.equals(directory.getFileName().toString())
-                || Layout.BUILD_TOOLS.equals(directory.getFileName().toString()))) {
+                || Layout.BUILD_TOOLS.equals(directory.getFileName().toString())
+                || directory.getFileName().toString().contains(".bak-")
+                || directory.getFileName().toString().startsWith(".unpack-"))) {
+            // Old copies kept during an update and unpack folders aren't JDKs anyone should adopt or switch to.
             return;
         }
         if (isHome(directory)) {

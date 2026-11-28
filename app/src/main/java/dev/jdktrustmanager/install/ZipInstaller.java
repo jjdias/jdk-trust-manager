@@ -96,15 +96,70 @@ public final class ZipInstaller {
         }
     }
 
+    /** Deletes the old copy after a successful replace; tests replace it. */
+    @FunctionalInterface
+    interface BackupRemover {
+        void remove(Path backup) throws IOException;
+    }
+
     /** Finds programs running from a JDK folder; tests replace it. */
     private final java.util.function.Function<Path, List<JdkInUse.Holder>> inUse;
+    private final BackupRemover removeBackup;
 
     public ZipInstaller() {
         this(JdkInUse::holders);
     }
 
     ZipInstaller(java.util.function.Function<Path, List<JdkInUse.Holder>> inUse) {
+        this(inUse, ZipInstaller::deleteWithRetry);
+    }
+
+    ZipInstaller(java.util.function.Function<Path, List<JdkInUse.Holder>> inUse, BackupRemover removeBackup) {
         this.inUse = inUse;
+        this.removeBackup = removeBackup;
+    }
+
+    /** A file briefly held by antivirus or the search indexer usually frees up within a second or two. */
+    static void deleteWithRetry(Path folder) throws IOException {
+        IOException last = null;
+        for (int attempt = 0; attempt < 6; attempt++) {
+            try {
+                deleteRecursively(folder);
+                return;
+            } catch (IOException ex) {
+                last = ex;
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException(interrupted);
+                }
+            }
+        }
+        throw last;
+    }
+
+    /** Deletes leftover {@code <folder>.bak-<millis>} copies of {@code destination} from earlier updates. Best effort. */
+    static void removeStaleBackups(Path destination, InstallProgress progress) {
+        Path parent = destination.toAbsolutePath().getParent();
+        if (parent == null || !Files.isDirectory(parent)) {
+            return;
+        }
+        String prefix = destination.getFileName() + ".bak-";
+        try (var siblings = Files.list(parent)) {
+            for (Path sibling : siblings.toList()) {
+                if (sibling.getFileName().toString().startsWith(prefix) && Files.isDirectory(sibling)) {
+                    try {
+                        deleteRecursively(sibling);
+                        note(progress, "Removed a leftover old copy at " + sibling);
+                    } catch (IOException ex) {
+                        note(progress, "Couldn't remove the leftover old copy at " + sibling + " (" + ex.getMessage() + ")");
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+            // Nothing to clean up that we can see.
+        }
     }
 
     private final HttpClient http = HttpClient.newBuilder()
@@ -142,6 +197,7 @@ public final class ZipInstaller {
                 throw new JdkInUse.InUseException(JdkInUse.message(target, holders));
             }
         }
+        removeStaleBackups(target, progress);
         Files.createDirectories(root);
         if (pkg.size() > 0 && Files.getFileStore(root).getUsableSpace() < pkg.size()) {
             throw new IOException("Not enough free space for " + pkg.filename());
@@ -186,8 +242,16 @@ public final class ZipInstaller {
                 throw new IOException("Feature version " + feature + " does not match " + pkg.major());
             }
             replay.replay(destination);
+            // From here the new JDK is in place, runs, and has its certificates: the install has succeeded. Removing the
+            // old copy is cleanup only. If Windows holds one of its files (antivirus, the indexer), the old copy stays as
+            // a .bak folder and is removed before the next install; it must never trigger the rollback below.
             if (backup != null) {
-                deleteRecursively(backup);
+                try {
+                    removeBackup.remove(backup);
+                } catch (IOException ex) {
+                    note(progress, "Couldn't remove the old copy at " + backup + " (" + ex.getMessage()
+                            + "). It will be removed before the next install of this JDK.");
+                }
             }
             return new Installation(
                     slug,
