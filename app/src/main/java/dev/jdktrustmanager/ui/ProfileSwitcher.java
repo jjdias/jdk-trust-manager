@@ -26,6 +26,7 @@ public final class ProfileSwitcher extends HBox {
     });
     private ProfileState state = ProfileState.empty();
     private boolean updating;
+    private String title = SwitcherModel.title(Optional.empty(), false);
 
     ProfileSwitcher(ProfileActivator activator, ToolContext context, ProfileStore store) {
         super(Spacing.GAP);
@@ -40,7 +41,8 @@ public final class ProfileSwitcher extends HBox {
                 setText(empty || item == null ? null : item.label());
             }
         });
-        combo.setButtonCell(buttonCell(SwitcherModel.title(Optional.empty(), false)));
+        combo.setPromptText(title);
+        combo.setButtonCell(buttonCell());
         combo.valueProperty().addListener((observable, before, picked) -> {
             if (updating) {
                 return;
@@ -73,7 +75,8 @@ public final class ProfileSwitcher extends HBox {
         updating = true;
         try {
             combo.getItems().setAll(items);
-            combo.setButtonCell(buttonCell(SwitcherModel.title(read.active(), unavailable)));
+            title = SwitcherModel.title(read.active(), unavailable);
+            combo.setPromptText(title);
             combo.setValue(SwitcherModel.selected(items, read.active()).orElse(null));
             combo.setDisable(unavailable);
         } finally {
@@ -81,7 +84,7 @@ public final class ProfileSwitcher extends HBox {
         }
     }
 
-    private static ListCell<SwitcherModel.Item> buttonCell(String title) {
+    private ListCell<SwitcherModel.Item> buttonCell() {
         return new ListCell<>() {
             @Override
             protected void updateItem(SwitcherModel.Item item, boolean empty) {
