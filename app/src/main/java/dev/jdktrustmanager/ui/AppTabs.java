@@ -24,6 +24,8 @@ import javafx.scene.control.TabPane;
 /** Top level: Java (its five screens), Maven, Ant, Gradle, Profiles, then Activity, which logs every tab's jobs. */
 public final class AppTabs extends TabPane {
 
+    private ProfileActivator activator;
+
     public AppTabs(Node java, List<ToolTab> tools, ProfilesPane profiles, Node activity) {
         setTabClosingPolicy(TabClosingPolicy.UNAVAILABLE);
         getTabs().add(new Tab(Screens.TOP_LEVEL.get(0), java));
@@ -44,8 +46,11 @@ public final class AppTabs extends TabPane {
     public static AppTabs create(Node java, Node activity, Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings,
             CatalogBrowser browser, DiscoClient client) {
         ToolContext context = context(root, stores, queue, settings);
-        return new AppTabs(java, toolTabs(context), new ProfilesPane(context, new ProfileStore(stores, AppFiles.profiles()), browser, client),
-                activity);
+        ProfileStore profileStore = new ProfileStore(stores, AppFiles.profiles());
+        ProfileActivator activator = new ProfileActivator(context, profileStore, browser, client);
+        AppTabs tabs = new AppTabs(java, toolTabs(context), new ProfilesPane(context, profileStore, activator), activity);
+        tabs.activator = activator;
+        return tabs;
     }
 
     static ToolContext context(Path root, JsonStores stores, WorkQueue queue, Supplier<Settings> settings) {
